@@ -37,5 +37,7 @@ describe('conversion engine', () => {
   it('formats useful precision without negative zero', () => {
     assert.equal(formatNumber(6.2137119224), '6.213711922');
     assert.equal(formatNumber(-0), '0');
+    assert.equal(formatNumber(1.25e12), '1.25e+12');
+    assert.equal(formatNumber(1.25e-8), '1.25e-8');
   });
 });

@@ -97,7 +97,10 @@ export function formatNumber(value) {
   if (!Number.isFinite(value)) return String(value);
   if (Object.is(value, -0)) value = 0;
   const magnitude = Math.abs(value);
-  if (magnitude !== 0 && (magnitude >= 1e12 || magnitude < 1e-7)) return value.toExponential(8).replace(/\.0+(?=e)|(?<=\.\d*?)0+(?=e)/g, '');
+  if (magnitude !== 0 && (magnitude >= 1e12 || magnitude < 1e-7)) {
+    const [coefficient, exponent] = value.toExponential(8).split('e');
+    return `${coefficient.replace(/\.?0+$/, '')}e${exponent}`;
+  }
   return new Intl.NumberFormat('en-US', { maximumSignificantDigits: 10 }).format(value);
 }
 

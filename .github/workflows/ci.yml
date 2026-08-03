@@ -8,14 +8,11 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          version: 10.28.1
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
+          node-version: 24
+      - run: corepack enable
       # Repair the bootstrap lockfile on the first CI run. Once pnpm has
       # generated the complete dependency graph, commit that lockfile and
       # switch this back to --frozen-lockfile.
