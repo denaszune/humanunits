@@ -1,0 +1,33 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+  .:
+    dependencies:
+      solid-js:
+        specifier: ^1.9.9
+        version: 1.9.9
+    devDependencies:
+      '@rsbuild/core':
+        specifier: ^1.5.0
+        version: 1.5.0
+      '@rsbuild/plugin-solid':
+        specifier: ^1.0.6
+        version: 1.0.6(solid-js@1.9.9)
+
+packages:
+  '@rsbuild/core@1.5.0': {}
+  '@rsbuild/plugin-solid@1.0.6':
+    peerDependencies:
+      '@rsbuild/core': ^1.0.1
+  solid-js@1.9.9: {}
+
+snapshots:
+  '@rsbuild/core@1.5.0': {}
+  '@rsbuild/plugin-solid@1.0.6(solid-js@1.9.9)':
+    dependencies:
+      '@rsbuild/core': 1.5.0
+  solid-js@1.9.9: {}
