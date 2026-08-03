@@ -12,7 +12,11 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
+          # setup-node's automatic package-manager cache probes pnpm before
+          # the following Corepack step has made its shim available.
+          package-manager-cache: false
       - run: corepack enable
+      - run: pnpm --version
       # Repair the bootstrap lockfile on the first CI run. Once pnpm has
       # generated the complete dependency graph, commit that lockfile and
       # switch this back to --frozen-lockfile.
