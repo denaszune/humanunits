@@ -16,7 +16,10 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      # Repair the bootstrap lockfile on the first CI run. Once pnpm has
+      # generated the complete dependency graph, commit that lockfile and
+      # switch this back to --frozen-lockfile.
+      - run: pnpm install --no-frozen-lockfile --fix-lockfile
       - run: pnpm test
       - run: pnpm build
       - run: pnpm size
