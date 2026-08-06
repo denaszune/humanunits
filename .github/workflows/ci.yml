@@ -1,7 +1,11 @@
 name: CI
 on:
   push:
+    branches: [main]
   pull_request:
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -12,15 +16,13 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          # setup-node's automatic package-manager cache probes pnpm before
-          # the following Corepack step has made its shim available.
           package-manager-cache: false
-      - run: corepack enable
+      # Installing the pinned CLI explicitly avoids Corepack's interactive
+      # download prompt, which can wait indefinitely on a headless runner.
+      - run: npm install --global pnpm@10.28.1
       - run: pnpm --version
-      # Repair the bootstrap lockfile on the first CI run. Once pnpm has
-      # generated the complete dependency graph, commit that lockfile and
-      # switch this back to --frozen-lockfile.
       - run: pnpm install --no-frozen-lockfile --fix-lockfile
+        timeout-minutes: 5
       - run: pnpm test
       - run: pnpm build
       - run: pnpm size
