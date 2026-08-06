@@ -27,4 +27,16 @@ export default defineConfig({
       'import.meta.env.BASE_PATH': JSON.stringify(base),
     },
   },
+  tools: {
+    // Keep the parser setting explicit: the Solid transform runs after SWC,
+    // so production builds must preserve JSX for the Solid plugin.
+    swc: {
+      jsc: {
+        parser: {
+          syntax: 'ecmascript',
+          jsx: true,
+        },
+      },
+    },
+  },
 });
