@@ -1,4 +1,5 @@
 import { defineConfig } from '@rsbuild/core';
+import { pluginBabel } from '@rsbuild/plugin-babel';
 import { pluginSolid } from '@rsbuild/plugin-solid';
 
 const base = process.env.BASE_PATH || '/';
@@ -7,7 +8,12 @@ if (!base.startsWith('/') || !base.endsWith('/')) {
 }
 
 export default defineConfig({
-  plugins: [pluginSolid()],
+  // Configure the Solid preset explicitly so JSX never falls back to SWC's
+  // React.createElement transform in production builds.
+  plugins: [
+    pluginBabel({ babelLoaderOptions: { presets: ['babel-preset-solid'] } }),
+    pluginSolid(),
+  ],
   html: {
     title: 'Human Units',
     meta: {
@@ -15,8 +21,8 @@ export default defineConfig({
       themeColor: '#173f35',
     },
     tags: [
-      { tag: 'link', attrs: { rel: 'manifest', href: `${base}manifest.webmanifest` }, head: true },
-      { tag: 'link', attrs: { rel: 'icon', href: `${base}icon.svg`, type: 'image/svg+xml' }, head: true },
+      { tag: 'link', attrs: { rel: 'manifest', href: 'manifest.webmanifest' }, head: true },
+      { tag: 'link', attrs: { rel: 'icon', href: 'icon.svg', type: 'image/svg+xml' }, head: true },
     ],
   },
   output: {
@@ -28,8 +34,8 @@ export default defineConfig({
     },
   },
   tools: {
-    // Keep the parser setting explicit: the Solid transform runs after SWC,
-    // so production builds must preserve JSX for the Solid plugin.
+    // Keep the parser setting explicit so SWC can parse .jsx after Babel has
+    // compiled Solid's JSX expressions.
     swc: {
       jsc: {
         parser: {
