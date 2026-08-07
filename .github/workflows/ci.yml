@@ -1,0 +1,28 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+      # Installing the pinned CLI explicitly avoids Corepack's interactive
+      # download prompt, which can wait indefinitely on a headless runner.
+      - run: npm install --global pnpm@10.28.1
+      - run: pnpm --version
+      - run: pnpm install --no-frozen-lockfile --fix-lockfile
+        timeout-minutes: 5
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm size
