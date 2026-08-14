@@ -21,7 +21,7 @@ export default function App() {
   const [history, setHistory] = createSignal(load(HISTORY_KEY));
   const [pins, setPins] = createSignal(load(PINS_KEY));
   const [copied, setCopied] = createSignal(false);
-  const conversion = createMemo(() => evaluate(query));
+  const conversion = createMemo(() => evaluate(query()));
   const resultText = createMemo(() => {
     const value = conversion();
     return value ? `${formatNumber(value.result)} ${value.to.symbol}` : '';
