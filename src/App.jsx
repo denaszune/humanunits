@@ -23,8 +23,14 @@ export default function App() {
   const [copied, setCopied] = createSignal(false);
   const [installPrompt, setInstallPrompt] = createSignal(null);
   const [updateReady, setUpdateReady] = createSignal(false);
-  const [openCategory, setOpenCategory] = createSignal(null);
   const catalog = supportedPairs();
+  const popularPairs = catalog.flatMap(group => group.pairs.filter(pair => pair.popular)).filter((pair, index, pairs) =>
+    index < pairs.findIndex(other => other.from.symbol === pair.to.symbol && other.to.symbol === pair.from.symbol)
+  );
+  const [selectedCategory, setSelectedCategory] = createSignal(catalog[0]?.category || '');
+  const selectedGroup = createMemo(() => catalog.find(group => group.category === selectedCategory()) || catalog[0]);
+  const [selectedFrom, setSelectedFrom] = createSignal(catalog[0]?.units[0]?.symbol || '');
+  const [selectedTo, setSelectedTo] = createSignal(catalog[0]?.units[1]?.symbol || '');
   const [page, setPage] = createSignal(location.hash === '#pairs' ? 'pairs' : 'converter');
   const handleHashChange = () => setPage(location.hash === '#pairs' ? 'pairs' : 'converter');
   addEventListener('hashchange', handleHashChange);
@@ -64,6 +70,29 @@ export default function App() {
   function chooseQuery(text) {
     setQuery(text);
     remember(evaluate(text));
+  }
+
+  function chooseCategory(category) {
+    const group = catalog.find(item => item.category === category);
+    setSelectedCategory(category);
+    setSelectedFrom(group?.units[0]?.symbol || '');
+    setSelectedTo(group?.units[1]?.symbol || '');
+  }
+
+  function chooseFrom(symbol) {
+    const group = selectedGroup();
+    const from = group?.units.find(unit => unit.symbol === symbol);
+    const compatibleTo = group?.units.find(unit => unit !== from && unit.conversionGroup === from?.conversionGroup);
+    setSelectedFrom(symbol);
+    if (!group?.units.some(unit => unit.symbol === selectedTo() && unit !== from && unit.conversionGroup === from?.conversionGroup)) setSelectedTo(compatibleTo?.symbol || '');
+  }
+
+  function chooseSelectedPair(event) {
+    event.preventDefault();
+    const group = selectedGroup();
+    const from = group?.units.find(unit => unit.symbol === selectedFrom());
+    const to = group?.units.find(unit => unit.symbol === selectedTo());
+    if (from && to && from !== to && from.conversionGroup === to.conversionGroup) chooseQuery(`1 ${from.query} in ${to.query}`);
   }
 
   function removeRecent(event, queryToRemove) {
@@ -122,22 +151,30 @@ export default function App() {
         <section class="pairs-page" aria-labelledby="pairs-title">
           <a class="back-link" href="#">← Converter</a>
           <h1 id="pairs-title">All conversion pairs</h1>
-          <p class="intro">Popular categories and pairs come first. Choose any category to browse every available conversion.</p>
-          <div class="category-list"><For each={catalog}>{group => {
-            const id = `pair-${group.category.replace(/[^a-z0-9]+/g, '-')}`;
-            const expanded = () => openCategory() === group.category;
-            return <section class="pair-group" aria-labelledby={id}>
-              <button class="category-toggle" type="button" aria-expanded={expanded()} aria-controls={`${id}-pairs`} onClick={() => setOpenCategory(expanded() ? null : group.category)}>
-                <span><strong id={id}>{group.category}</strong><small>{group.units.slice(0, 4).map(unit => unit.symbol).join(' · ')}{group.units.length > 4 ? ' …' : ''}</small></span>
-                <span class="unit-count">{group.units.length} units <span aria-hidden="true">{expanded() ? '−' : '+'}</span></span>
-              </button>
-              <Show when={expanded()}><div id={`${id}-pairs`} class="pair-grid"><For each={group.pairs}>{pair =>
-                <a href="#" classList={{ popular: pair.popular }} onClick={() => chooseQuery(pair.query)} title={`${pair.from.name} to ${pair.to.name}`}>
-                  {pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}<Show when={pair.popular}><small>Popular</small></Show>
-                </a>
-              }</For></div></Show>
-            </section>;
-          }}</For></div>
+          <p class="intro">Start with a common conversion, or use the picker to reach any supported pair without digging through a giant list.</p>
+
+          <section class="popular-pairs" aria-labelledby="popular-pairs-title">
+            <div class="pairs-section-heading"><h2 id="popular-pairs-title">Popular conversions</h2><span>{popularPairs.length} pairs</span></div>
+            <div class="pair-grid"><For each={popularPairs}>{pair =>
+              <a href="#" onClick={() => chooseQuery(pair.query)} title={`${pair.from.name} to ${pair.to.name}`}>
+                <strong>{pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}</strong>
+                <small>{pair.from.name} to {pair.to.name}</small>
+              </a>
+            }</For></div>
+          </section>
+
+          <section class="pair-finder" aria-labelledby="pair-finder-title">
+            <div class="pairs-section-heading"><div><h2 id="pair-finder-title">Every other pair</h2><p>Choose a category, then the two units.</p></div><span>{catalog.length} categories</span></div>
+            <form onSubmit={chooseSelectedPair}>
+              <label class="category-field">Category<select value={selectedCategory()} onChange={event => chooseCategory(event.currentTarget.value)}><For each={catalog}>{group => <option value={group.category}>{group.category}</option>}</For></select></label>
+              <div class="unit-fields">
+                <label>From<select value={selectedFrom()} onChange={event => chooseFrom(event.currentTarget.value)}><For each={selectedGroup()?.units}>{unit => <option value={unit.symbol}>{unit.name} ({unit.symbol})</option>}</For></select></label>
+                <span aria-hidden="true">→</span>
+                <label>To<select value={selectedTo()} onChange={event => setSelectedTo(event.currentTarget.value)}><For each={selectedGroup()?.units}>{unit => <option value={unit.symbol} disabled={unit.symbol === selectedFrom() || unit.conversionGroup !== selectedGroup()?.units.find(item => item.symbol === selectedFrom())?.conversionGroup}>{unit.name} ({unit.symbol})</option>}</For></select></label>
+              </div>
+              <button class="use-pair" type="submit" disabled={selectedFrom() === selectedTo()}>Use this pair <span aria-hidden="true">→</span></button>
+            </form>
+          </section>
         </section>
       }>
       <section class="hero" aria-label="Unit converter">
