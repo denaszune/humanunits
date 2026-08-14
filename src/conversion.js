@@ -114,14 +114,40 @@ for (const unit of units) for (const alias of unit.aliases) {
   matches.push(unit); byAlias.set(alias, matches);
 }
 
+const popularCategoryOrder = ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'time', 'digital storage', 'energy', 'pressure', 'power', 'fuel economy'];
+const popularUnits = new Map(Object.entries({
+  length: ['km', 'mi', 'm', 'ft', 'cm', 'in'], temperature: ['°C', '°F', 'K'], mass: ['kg', 'lb', 'g', 'oz'],
+  volume: ['L', 'gal (US)', 'mL', 'fl oz (US)', 'cup (US)'], area: ['m²', 'ft²', 'ha', 'acre'],
+  speed: ['km/h', 'mph', 'm/s'], time: ['min', 'h', 'd', 's'], 'digital storage': ['MB', 'MiB', 'GB', 'GiB'],
+  energy: ['kJ', 'kcal', 'kWh', 'J'], pressure: ['bar', 'psi', 'kPa'], power: ['kW', 'hp', 'W'],
+  'fuel economy': ['L/100km', 'mpg (US)', 'km/L']
+}));
+const popularPairList = [
+  ['km', 'mi'], ['m', 'ft'], ['cm', 'in'], ['°C', '°F'], ['°C', 'K'], ['kg', 'lb'], ['g', 'oz'],
+  ['L', 'gal (US)'], ['mL', 'fl oz (US)'], ['cup (US)', 'mL'], ['m²', 'ft²'], ['ha', 'acre'],
+  ['km/h', 'mph'], ['m/s', 'mph'], ['h', 'min'], ['d', 'h'], ['MB', 'MiB'], ['GB', 'GiB'],
+  ['kJ', 'kcal'], ['kWh', 'J'], ['bar', 'psi'], ['kPa', 'psi'], ['kW', 'hp'], ['L/100km', 'mpg (US)']
+];
+const popularPairKeys = new Set(popularPairList.flatMap(([from, to]) => [`${from}\0${to}`, `${to}\0${from}`]));
+
 export function supportedPairs() {
   const categories = new Map();
   for (const unit of units) {
     const category = categories.get(unit.category) || [];
     category.push({ name: unit.name, symbol: unit.symbol, query: unit.name, conversionGroup: unit.conversionGroup }); categories.set(unit.category, category);
   }
-  return [...categories].map(([category, categoryUnits]) => ({ category, units: categoryUnits,
-    pairs: categoryUnits.flatMap(from => categoryUnits.filter(to => to !== from && to.conversionGroup === from.conversionGroup).map(to => ({ from, to, query: `1 ${from.query} in ${to.query}` }))) }));
+  return [...categories].map(([category, categoryUnits], sourceIndex) => {
+    const preferred = popularUnits.get(category) || [];
+    const units = categoryUnits.map((unit, index) => ({ unit, index })).sort((a, b) => {
+      const aRank = preferred.indexOf(a.unit.symbol), bRank = preferred.indexOf(b.unit.symbol);
+      return (aRank < 0 ? Infinity : aRank) - (bRank < 0 ? Infinity : bRank) || a.index - b.index;
+    }).map(({ unit }) => unit);
+    const pairs = units.flatMap(from => units.filter(to => to !== from && to.conversionGroup === from.conversionGroup).map(to => ({
+      from, to, query: `1 ${from.query} in ${to.query}`, popular: popularPairKeys.has(`${from.symbol}\0${to.symbol}`)
+    }))).map((pair, index) => ({ pair, index })).sort((a, b) => Number(b.pair.popular) - Number(a.pair.popular) || a.index - b.index).map(({ pair }) => pair);
+    const rank = popularCategoryOrder.indexOf(category);
+    return { category, units, pairs, popular: rank >= 0, rank: rank < 0 ? Infinity : rank, sourceIndex };
+  }).sort((a, b) => a.rank - b.rank || a.sourceIndex - b.sourceIndex).map(({ rank, sourceIndex, ...group }) => group);
 }
 
 export function parseQuery(input) {
