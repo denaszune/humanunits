@@ -1,5 +1,5 @@
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { evaluate, formatNumber, pairQuery, supportedPairs } from './conversion.js';
+import { evaluate, formatNumber, pairQuery, supportedUnits } from './conversion.js';
 
 const HISTORY_KEY = 'humanunits:history:v1';
 const PINS_KEY = 'humanunits:pins:v1';
@@ -23,14 +23,32 @@ export default function App() {
   const [copied, setCopied] = createSignal(false);
   const [installPrompt, setInstallPrompt] = createSignal(null);
   const [updateReady, setUpdateReady] = createSignal(false);
-  const catalog = supportedPairs();
-  const popularPairs = catalog.flatMap(group => group.pairs.filter(pair => pair.popular)).filter((pair, index, pairs) =>
-    index < pairs.findIndex(other => other.from.symbol === pair.to.symbol && other.to.symbol === pair.from.symbol)
-  );
-  const [selectedCategory, setSelectedCategory] = createSignal(catalog[0]?.category || '');
-  const selectedGroup = createMemo(() => catalog.find(group => group.category === selectedCategory()) || catalog[0]);
-  const [selectedFrom, setSelectedFrom] = createSignal(catalog[0]?.units[0]?.symbol || '');
-  const [selectedTo, setSelectedTo] = createSignal(catalog[0]?.units[1]?.symbol || '');
+  const catalog = supportedUnits();
+  const unitCount = catalog.reduce((total, group) => total + group.units.length, 0);
+  const popularPairSymbols = [['km', 'mi'], ['°C', '°F'], ['kg', 'lb'], ['mL', 'cup (US)'], ['bar', 'psi'], ['GB', 'GiB']];
+  const popularPairs = popularPairSymbols.map(([fromSymbol, toSymbol]) => {
+    const group = catalog.find(item => item.units.some(unit => unit.symbol === fromSymbol) && item.units.some(unit => unit.symbol === toSymbol));
+    const from = group?.units.find(unit => unit.symbol === fromSymbol);
+    const to = group?.units.find(unit => unit.symbol === toSymbol);
+    return from && to ? { from, to, query: pairQuery(from, to) } : null;
+  }).filter(Boolean);
+  const [search, setSearch] = createSignal('');
+  const [expanded, setExpanded] = createSignal([]);
+  const [selectedFrom, setSelectedFrom] = createSignal(null);
+  const titleCase = text => text.replace(/(^|\s)\S/g, letter => letter.toUpperCase());
+  const categorySections = [
+    ['Everyday', ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'time', 'calendar duration', 'fuel economy', 'angle', 'typography']],
+    ['Science & engineering', ['frequency', 'acceleration', 'force', 'pressure', 'energy', 'power', 'torque', 'density', 'volumetric flow', 'mass flow', 'dynamic viscosity', 'kinematic viscosity', 'ratio', 'amount of substance', 'catalytic activity', 'molar concentration', 'mass concentration', 'specific energy', 'volumetric energy density', 'thermal conductivity', 'heat transfer coefficient', 'specific heat capacity', 'thermal resistance', 'temperature difference']],
+    ['Computing', ['digital storage', 'data rate', 'pixel density', 'symbol rate', 'information content']],
+    ['Electrical', ['electric current', 'electric charge', 'voltage', 'resistance', 'conductance', 'capacitance', 'inductance', 'magnetic flux', 'magnetic flux density']],
+    ['Light & radiation', ['luminous flux', 'illuminance', 'luminance', 'irradiance', 'radioactivity', 'absorbed dose', 'equivalent dose', 'radiation exposure']],
+    ['Other / specialized', ['sound level']]
+  ].map(([name, categories]) => [name, categories.map(category => catalog.find(group => group.category === category)).filter(Boolean)]).filter(([, groups]) => groups.length);
+  const searchResults = createMemo(() => {
+    const needle = search().trim().toLowerCase().replace(/µ/g, 'u');
+    if (!needle) return [];
+    return catalog.flatMap(group => group.units.filter(unit => [group.category, unit.name, unit.symbol, ...unit.aliases].some(value => value.toLowerCase().replace(/µ/g, 'u').includes(needle))).map(unit => ({ ...unit, category: group.category })));
+  });
   const [page, setPage] = createSignal(location.hash === '#pairs' ? 'pairs' : 'converter');
   const handleHashChange = () => setPage(location.hash === '#pairs' ? 'pairs' : 'converter');
   addEventListener('hashchange', handleHashChange);
@@ -72,27 +90,26 @@ export default function App() {
     remember(evaluate(text));
   }
 
-  function chooseCategory(category) {
-    const group = catalog.find(item => item.category === category);
-    setSelectedCategory(category);
-    setSelectedFrom(group?.units[0]?.symbol || '');
-    setSelectedTo(group?.units[1]?.symbol || '');
+  function toggleCategory(category) {
+    setExpanded(current => current.includes(category) ? current.filter(item => item !== category) : [...current, category]);
   }
 
-  function chooseFrom(symbol) {
-    const group = selectedGroup();
-    const from = group?.units.find(unit => unit.symbol === symbol);
-    const compatibleTo = group?.units.find(unit => unit !== from && unit.conversionGroup === from?.conversionGroup);
-    setSelectedFrom(symbol);
-    if (!group?.units.some(unit => unit.symbol === selectedTo() && unit !== from && unit.conversionGroup === from?.conversionGroup)) setSelectedTo(compatibleTo?.symbol || '');
+  function isCompatible(unit, category) {
+    const from = selectedFrom();
+    return !from || (from.category === category && from.symbol !== unit.symbol && from.conversionGroup === unit.conversionGroup);
   }
 
-  function chooseSelectedPair(event) {
-    event.preventDefault();
-    const group = selectedGroup();
-    const from = group?.units.find(unit => unit.symbol === selectedFrom());
-    const to = group?.units.find(unit => unit.symbol === selectedTo());
-    if (from && to && from !== to && from.conversionGroup === to.conversionGroup) chooseQuery(`1 ${from.query} in ${to.query}`);
+  function chooseUnit(unit, category) {
+    const from = selectedFrom();
+    if (!from) {
+      setSelectedFrom({ ...unit, category });
+      setExpanded(current => current.includes(category) ? current : [...current, category]);
+      return;
+    }
+    if (!isCompatible(unit, category)) return;
+    chooseQuery(pairQuery(from, unit));
+    setSelectedFrom(null);
+    location.hash = '';
   }
 
   function removeRecent(event, queryToRemove) {
@@ -148,37 +165,39 @@ export default function App() {
 
     <main>
       <Show when={page() === 'converter'} fallback={
-        <section class="pairs-page" aria-labelledby="pairs-title">
+        <section class="browse-page" aria-labelledby="browse-title">
           <a class="back-link" href="#">← Converter</a>
-          <h1 id="pairs-title">All conversion pairs</h1>
+          <div class="browse-heading">
+            <div><h1 id="browse-title">Browse supported units</h1><p>Explore the units and measurement categories supported by Human Units.</p></div>
+            <strong>{unitCount} units across {catalog.length} categories</strong>
+          </div>
+
+          <label class="browse-search" for="unit-search"><span>Search units or categories</span><input id="unit-search" type="search" value={search()} onInput={event => setSearch(event.currentTarget.value)} placeholder="Search units or categories…" autocomplete="off" /></label>
+          <Show when={search().trim()}>
+            <section class="search-results" aria-labelledby="search-results-title">
+              <div class="browse-section-heading"><h2 id="search-results-title">Search results</h2><span aria-live="polite">{searchResults().length} units</span></div>
+              <Show when={searchResults().length} fallback={<p class="empty">No supported units or categories match “{search()}”.</p>}>
+                <div class="result-grid"><For each={searchResults()}>{unit => <button type="button" disabled={!isCompatible(unit, unit.category)} onClick={() => chooseUnit(unit, unit.category)} aria-label={`${unit.name}, ${unit.symbol}, ${titleCase(unit.category)}`}><strong>{unit.symbol} <span>— {unit.name}</span></strong><small>{titleCase(unit.category)}</small></button>}</For></div>
+              </Show>
+            </section>
+          </Show>
+
+          <Show when={selectedFrom()}>{from => <div class="selection-status" role="status"><span><strong>From: {from().name} ({from().symbol})</strong> — choose a destination unit</span><button type="button" onClick={() => setSelectedFrom(null)}>Clear</button></div>}</Show>
 
           <section class="popular-pairs" aria-labelledby="popular-pairs-title">
-            <div class="pairs-section-heading"><h2 id="popular-pairs-title">Popular conversions</h2><span>{popularPairs.length} pairs</span></div>
-            <div class="pair-grid"><For each={popularPairs}>{pair =>
-              <a href="#" onClick={() => chooseQuery(pair.query)} title={`${pair.from.name} to ${pair.to.name}`}>
-                <strong>{pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}</strong>
-                <small>{pair.from.name} to {pair.to.name}</small>
-              </a>
-            }</For></div>
+            <div class="browse-section-heading"><h2 id="popular-pairs-title">Popular conversions</h2></div>
+            <div class="compact-pairs"><For each={popularPairs}>{pair => <a href="#" onClick={() => chooseQuery(pair.query)} title={`${pair.from.name} to ${pair.to.name}`}><strong>{pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}</strong></a>}</For></div>
           </section>
 
-          <section class="pair-finder" aria-labelledby="pair-finder-title">
-            <div class="pairs-section-heading"><div><h2 id="pair-finder-title">Every other pair</h2><p>Choose a category, then the two units.</p></div><span>{catalog.length} categories</span></div>
-            <form onSubmit={chooseSelectedPair}>
-              <label class="category-field">Category<select value={selectedCategory()} onChange={event => chooseCategory(event.currentTarget.value)}><For each={catalog}>{group => <option value={group.category}>{group.category}</option>}</For></select></label>
-              <div class="unit-fields">
-                <label>From<select value={selectedFrom()} onChange={event => chooseFrom(event.currentTarget.value)}><For each={selectedGroup()?.units}>{unit => <option value={unit.symbol}>{unit.name} ({unit.symbol})</option>}</For></select></label>
-                <span aria-hidden="true">→</span>
-                <label>To<select value={selectedTo()} onChange={event => setSelectedTo(event.currentTarget.value)}><For each={selectedGroup()?.units}>{unit => <option value={unit.symbol} disabled={unit.symbol === selectedFrom() || unit.conversionGroup !== selectedGroup()?.units.find(item => item.symbol === selectedFrom())?.conversionGroup}>{unit.name} ({unit.symbol})</option>}</For></select></label>
-              </div>
-              <button class="use-pair" type="submit" disabled={selectedFrom() === selectedTo()}>Use this pair <span aria-hidden="true">→</span></button>
-            </form>
+          <section class="category-browser" aria-labelledby="categories-title">
+            <div class="browse-section-heading"><h2 id="categories-title">All categories</h2><span>{catalog.length} categories</span></div>
+            <For each={categorySections}>{([sectionName, groups]) => <section class="category-section" aria-labelledby={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}><h3 id={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}>{sectionName}</h3><div class="category-grid"><For each={groups}>{group => <article class="category-item"><button class="category-card" type="button" aria-expanded={expanded().includes(group.category)} onClick={() => toggleCategory(group.category)}><span><strong>{titleCase(group.category)}</strong><small>{group.units.length} units</small></span><span aria-hidden="true">{expanded().includes(group.category) ? '−' : '+'}</span></button><Show when={expanded().includes(group.category)}><div class="unit-panel"><p class="sr-only">Choose a unit from {titleCase(group.category)}. The first unit becomes the source; then choose a compatible destination.</p><div class="unit-chips"><For each={group.units}>{unit => <button type="button" classList={{ selected: selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol }} disabled={selectedFrom() && !isCompatible(unit, group.category) && !(selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol)} onClick={() => chooseUnit(unit, group.category)} aria-pressed={selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol} title={unit.name}><strong>{unit.symbol}</strong><span>{unit.name}</span></button>}</For></div></div></Show></article>}</For></div></section>}</For>
           </section>
         </section>
       }>
       <section class="hero" aria-label="Unit converter">
         <form onSubmit={submit} class="converter" role="search">
-          <div class="converter-heading"><label for="conversion-input">What would you like to convert?</label><a href="#pairs">Browse all pairs <span aria-hidden="true">→</span></a></div>
+          <div class="converter-heading"><label for="conversion-input">What would you like to convert?</label><a href="#pairs">Browse units <span aria-hidden="true">→</span></a></div>
           <div class="input-wrap">
             <input id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); }}
               inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="10 km in miles" aria-describedby="input-hint" />
