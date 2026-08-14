@@ -122,7 +122,7 @@ export default function App() {
         <section class="pairs-page" aria-labelledby="pairs-title">
           <a class="back-link" href="#">← Converter</a>
           <h1 id="pairs-title">All conversion pairs</h1>
-          <p class="intro">Choose a category, then a pair. A few popular units are previewed so the full catalog stays easy to scan.</p>
+          <p class="intro">Popular categories and pairs come first. Choose any category to browse every available conversion.</p>
           <div class="category-list"><For each={catalog}>{group => {
             const id = `pair-${group.category.replace(/[^a-z0-9]+/g, '-')}`;
             const expanded = () => openCategory() === group.category;
@@ -132,8 +132,8 @@ export default function App() {
                 <span class="unit-count">{group.units.length} units <span aria-hidden="true">{expanded() ? '−' : '+'}</span></span>
               </button>
               <Show when={expanded()}><div id={`${id}-pairs`} class="pair-grid"><For each={group.pairs}>{pair =>
-                <a href="#" onClick={() => chooseQuery(pair.query)} title={`${pair.from.name} to ${pair.to.name}`}>
-                  {pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}
+                <a href="#" classList={{ popular: pair.popular }} onClick={() => chooseQuery(pair.query)} title={`${pair.from.name} to ${pair.to.name}`}>
+                  {pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}<Show when={pair.popular}><small>Popular</small></Show>
                 </a>
               }</For></div></Show>
             </section>;

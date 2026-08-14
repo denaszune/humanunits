@@ -59,6 +59,18 @@ describe('conversion engine', () => {
 });
 
 describe('supported pairs catalog', () => {
+  it('puts common categories, units, and pairs first', () => {
+    const catalog = supportedPairs();
+    assert.deepEqual(catalog.slice(0, 6).map(group => group.category), ['length', 'temperature', 'mass', 'volume', 'area', 'speed']);
+    assert.deepEqual(catalog[0].units.slice(0, 6).map(unit => unit.symbol), ['km', 'mi', 'm', 'ft', 'cm', 'in']);
+    assert.ok(catalog[0].pairs[0].popular);
+    assert.deepEqual([catalog[0].pairs[0].from.symbol, catalog[0].pairs[0].to.symbol], ['km', 'mi']);
+    for (const group of catalog) {
+      const firstRegularPair = group.pairs.findIndex(pair => !pair.popular);
+      assert.ok(firstRegularPair < 0 || group.pairs.slice(firstRegularPair).every(pair => !pair.popular));
+    }
+  });
+
   it('lists every directed pair within each category', () => {
     const catalog = supportedPairs();
     assert.equal(catalog.length, 59);
