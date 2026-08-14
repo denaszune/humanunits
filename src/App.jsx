@@ -151,7 +151,6 @@ export default function App() {
         <section class="pairs-page" aria-labelledby="pairs-title">
           <a class="back-link" href="#">← Converter</a>
           <h1 id="pairs-title">All conversion pairs</h1>
-          <p class="intro">Start with a common conversion, or use the picker to reach any supported pair without digging through a giant list.</p>
 
           <section class="popular-pairs" aria-labelledby="popular-pairs-title">
             <div class="pairs-section-heading"><h2 id="popular-pairs-title">Popular conversions</h2><span>{popularPairs.length} pairs</span></div>
@@ -183,7 +182,6 @@ export default function App() {
           <div class="input-wrap">
             <input id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); }}
               inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="10 km in miles" aria-describedby="input-hint" />
-            <kbd aria-hidden="true">Enter</kbd>
           </div>
           <p id="input-hint" class="hint">Try {examples.map((text, index) => <><button type="button" class="text-button" onClick={() => chooseQuery(text)}>{text}</button>{index < examples.length - 1 ? ', ' : ''}</>)}</p>
         </form>
