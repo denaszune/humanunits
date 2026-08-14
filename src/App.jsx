@@ -1,5 +1,5 @@
-import { createMemo, createSignal, For, Show } from 'solid-js';
-import { evaluate, formatNumber, pairQuery } from './conversion.js';
+import { createMemo, createSignal, For, onCleanup, Show } from 'solid-js';
+import { evaluate, formatNumber, pairQuery, supportedPairs } from './conversion.js';
 
 const HISTORY_KEY = 'humanunits:history:v1';
 const PINS_KEY = 'humanunits:pins:v1';
@@ -17,10 +17,14 @@ function save(key, value) {
 }
 
 export default function App() {
-  const [query, setQuery] = createSignal('10 km in miles');
+  const [query, setQuery] = createSignal('');
   const [history, setHistory] = createSignal(load(HISTORY_KEY));
   const [pins, setPins] = createSignal(load(PINS_KEY));
   const [copied, setCopied] = createSignal(false);
+  const [page, setPage] = createSignal(location.hash === '#pairs' ? 'pairs' : 'converter');
+  const handleHashChange = () => setPage(location.hash === '#pairs' ? 'pairs' : 'converter');
+  addEventListener('hashchange', handleHashChange);
+  onCleanup(() => removeEventListener('hashchange', handleHashChange));
   const conversion = createMemo(() => evaluate(query()));
   const resultText = createMemo(() => {
     const value = conversion();
@@ -74,20 +78,36 @@ export default function App() {
   return <>
     <header class="site-header">
       <a class="brand" href={import.meta.env.BASE_PATH} aria-label="Human Units home"><span aria-hidden="true">HU</span> Human Units</a>
-      <span class="offline-note">Private · Offline-ready</span>
+      <nav aria-label="Main navigation"><a href="#pairs">All pairs</a></nav>
     </header>
 
     <main>
+      <Show when={page() === 'converter'} fallback={
+        <section class="pairs-page" aria-labelledby="pairs-title">
+          <a class="back-link" href="#">← Converter</a>
+          <h1 id="pairs-title">All conversion pairs</h1>
+          <p class="intro">Choose a pair to start converting.</p>
+          <For each={supportedPairs()}>{group =>
+            <section class="pair-group" aria-labelledby={`pair-${group.category}`}>
+              <h2 id={`pair-${group.category}`}>{group.category}</h2>
+              <div class="pair-grid"><For each={group.pairs}>{pair =>
+                <a href="#" onClick={() => setQuery(pair.query)} title={`${pair.from.name} to ${pair.to.name}`}>
+                  {pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}
+                </a>
+              }</For></div>
+            </section>
+          }</For>
+        </section>
+      }>
       <section class="hero" aria-labelledby="page-title">
-        <p class="eyebrow">Say it naturally</p>
-        <h1 id="page-title">Convert units without the busywork.</h1>
-        <p class="intro">Type a value, its unit, and what you want it converted to.</p>
+        <h1 id="page-title">Convert units.</h1>
+        <p class="intro">Type it naturally.</p>
 
         <form onSubmit={submit} class="converter" role="search">
           <label for="conversion-input">What would you like to convert?</label>
           <div class="input-wrap">
             <input id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); }}
-              inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="input-hint" />
+              inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="10 km in miles" aria-describedby="input-hint" />
             <kbd aria-hidden="true">Enter</kbd>
           </div>
           <p id="input-hint" class="hint">Try {examples.map((text, index) => <><button type="button" class="text-button" onClick={() => setQuery(text)}>{text}</button>{index < examples.length - 1 ? ', ' : ''}</>)}</p>
@@ -99,7 +119,7 @@ export default function App() {
             <Show when={conversion()}><span>{formatNumber(conversion().value)} {conversion().from.symbol}</span></Show>
           </div>
           <div class="result" aria-live="polite" aria-atomic="true">
-            <Show when={conversion()} fallback={<span class="empty-result">Use a query like “10 km in miles”</span>}>
+            <Show when={conversion()} fallback={<span class="empty-result">Your result appears here.</span>}>
               <strong>{formatNumber(conversion().result)}</strong> <span>{conversion().to.symbol}</span>
             </Show>
           </div>
@@ -115,7 +135,7 @@ export default function App() {
 
       <div class="collections">
         <section aria-labelledby="pinned-title">
-          <div class="section-title"><h2 id="pinned-title">Pinned pairs</h2><span>{pins().length}</span></div>
+          <div class="section-title"><h2 id="pinned-title">Pinned pairs <small>Saved on this device</small></h2><span>{pins().length}</span></div>
           <Show when={pins().length} fallback={<p class="empty">Pin the conversions you use most.</p>}>
             <ul><For each={pins()}>{item => <li><button onClick={() => setQuery(item.query)}><span>{item.from} → {item.to}</span><small>Convert</small></button></li>}</For></ul>
           </Show>
@@ -127,8 +147,9 @@ export default function App() {
           </Show>
         </section>
       </div>
+      </Show>
     </main>
 
-    <footer><span>Eight categories. Zero tracking.</span><span>MIT licensed</span></footer>
+    <footer><span>Private · Works offline · No tracking</span><span>8 categories · MIT licensed</span></footer>
   </>;
 }

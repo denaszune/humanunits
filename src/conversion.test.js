@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { convert, evaluate, formatNumber, parseQuery } from './conversion.js';
+import { convert, evaluate, formatNumber, parseQuery, supportedPairs } from './conversion.js';
 
 function close(actual, expected, precision = 8) {
   assert.ok(Math.abs(actual - expected) < 10 ** -precision * Math.max(1, Math.abs(expected)), `${actual} is not close to ${expected}`);
@@ -39,5 +39,16 @@ describe('conversion engine', () => {
     assert.equal(formatNumber(-0), '0');
     assert.equal(formatNumber(1.25e12), '1.25e+12');
     assert.equal(formatNumber(1.25e-8), '1.25e-8');
+  });
+});
+
+describe('supported pairs catalog', () => {
+  it('lists every directed pair within each category', () => {
+    const catalog = supportedPairs();
+    assert.equal(catalog.length, 8);
+    for (const group of catalog) {
+      assert.equal(group.pairs.length, group.units.length * (group.units.length - 1));
+      assert.ok(group.pairs.every(pair => evaluate(pair.query)));
+    }
   });
 });

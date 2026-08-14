@@ -44,7 +44,7 @@ const units = [
   linear('speed', 1, ['meter per second', 'meters per second', 'm/s', 'mps'], 'm/s'),
   linear('speed', 1 / 3.6, ['kilometer per hour', 'kilometers per hour', 'km/h', 'kph', 'kmph'], 'km/h'),
   linear('speed', .44704, ['mile per hour', 'miles per hour', 'mph', 'mi/h'], 'mph'),
-  linear('speed', .514444444444, ['knot', 'knots', 'kt', 'kts'], 'kn'),
+  linear('speed', .514444444444, ['knot', 'knots', 'kn', 'kt', 'kts'], 'kn'),
 
   linear('time', 1, ['second', 'seconds', 'sec', 'secs', 's'], 's'),
   linear('time', 60, ['minute', 'minutes', 'min', 'mins'], 'min'),
@@ -65,6 +65,23 @@ const units = [
 
 const byAlias = new Map();
 for (const unit of units) for (const alias of unit.aliases) byAlias.set(alias, unit);
+
+export function supportedPairs() {
+  const categories = new Map();
+  for (const unit of units) {
+    const category = categories.get(unit.category) || [];
+    category.push({ name: unit.aliases[0], symbol: unit.symbol });
+    categories.set(unit.category, category);
+  }
+
+  return [...categories].map(([category, categoryUnits]) => ({
+    category,
+    units: categoryUnits,
+    pairs: categoryUnits.flatMap(from => categoryUnits
+      .filter(to => to.symbol !== from.symbol)
+      .map(to => ({ from, to, query: `1 ${from.symbol} in ${to.symbol}` }))),
+  }));
+}
 
 function cleanUnit(text) {
   return text.toLowerCase().trim().replace(/^degrees?\s+/, '').replace(/\s+/g, ' ');
