@@ -19,7 +19,7 @@ Useful commands:
 - `pnpm preview` serves the production output.
 - `pnpm size` reports raw and gzip sizes for production JavaScript and CSS.
 
-Set `BASE_PATH=/humanunits/ pnpm build` for GitHub Pages, or leave it unset for `/`. The base path must begin and end with `/`.
+Production assets use relative URLs by default, so the same build works at `/` or in a subdirectory such as `/humanunits/` on GitHub Pages. Set an absolute base when required with, for example, `BASE_PATH=/humanunits/ pnpm build`; an explicit base must begin and end with `/`.
 
 ## Architecture
 

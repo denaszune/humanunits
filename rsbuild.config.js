@@ -2,9 +2,12 @@ import { defineConfig } from '@rsbuild/core';
 import { pluginBabel } from '@rsbuild/plugin-babel';
 import { pluginSolid } from '@rsbuild/plugin-solid';
 
-const base = process.env.BASE_PATH || '/';
-if (!base.startsWith('/') || !base.endsWith('/')) {
-  throw new Error('BASE_PATH must begin and end with "/"');
+// Relative URLs make the default build portable between a domain root and a
+// project subdirectory (such as GitHub Pages) without deployment-specific
+// configuration. An explicit absolute base remains available when needed.
+const base = process.env.BASE_PATH || './';
+if (base !== './' && (!base.startsWith('/') || !base.endsWith('/'))) {
+  throw new Error('BASE_PATH must be "./" or begin and end with "/"');
 }
 
 export default defineConfig({
