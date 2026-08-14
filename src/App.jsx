@@ -23,6 +23,8 @@ export default function App() {
   const [copied, setCopied] = createSignal(false);
   const [installPrompt, setInstallPrompt] = createSignal(null);
   const [updateReady, setUpdateReady] = createSignal(false);
+  const [openCategory, setOpenCategory] = createSignal(null);
+  const catalog = supportedPairs();
   const [page, setPage] = createSignal(location.hash === '#pairs' ? 'pairs' : 'converter');
   const handleHashChange = () => setPage(location.hash === '#pairs' ? 'pairs' : 'converter');
   addEventListener('hashchange', handleHashChange);
@@ -120,17 +122,22 @@ export default function App() {
         <section class="pairs-page" aria-labelledby="pairs-title">
           <a class="back-link" href="#">← Converter</a>
           <h1 id="pairs-title">All conversion pairs</h1>
-          <p class="intro">Choose a pair to start converting.</p>
-          <For each={supportedPairs()}>{group =>
-            <section class="pair-group" aria-labelledby={`pair-${group.category}`}>
-              <h2 id={`pair-${group.category}`}>{group.category}</h2>
-              <div class="pair-grid"><For each={group.pairs}>{pair =>
+          <p class="intro">Choose a category, then a pair. A few popular units are previewed so the full catalog stays easy to scan.</p>
+          <div class="category-list"><For each={catalog}>{group => {
+            const id = `pair-${group.category.replace(/[^a-z0-9]+/g, '-')}`;
+            const expanded = () => openCategory() === group.category;
+            return <section class="pair-group" aria-labelledby={id}>
+              <button class="category-toggle" type="button" aria-expanded={expanded()} aria-controls={`${id}-pairs`} onClick={() => setOpenCategory(expanded() ? null : group.category)}>
+                <span><strong id={id}>{group.category}</strong><small>{group.units.slice(0, 4).map(unit => unit.symbol).join(' · ')}{group.units.length > 4 ? ' …' : ''}</small></span>
+                <span class="unit-count">{group.units.length} units <span aria-hidden="true">{expanded() ? '−' : '+'}</span></span>
+              </button>
+              <Show when={expanded()}><div id={`${id}-pairs`} class="pair-grid"><For each={group.pairs}>{pair =>
                 <a href="#" onClick={() => chooseQuery(pair.query)} title={`${pair.from.name} to ${pair.to.name}`}>
                   {pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}
                 </a>
-              }</For></div>
-            </section>
-          }</For>
+              }</For></div></Show>
+            </section>;
+          }}</For></div>
         </section>
       }>
       <section class="hero" aria-label="Unit converter">
@@ -174,14 +181,14 @@ export default function App() {
         <section aria-labelledby="recent-title">
           <div class="section-title"><h2 id="recent-title">Recent</h2><Show when={history().length}><button class="clear" onClick={() => { setHistory([]); save(HISTORY_KEY, []); }}>Clear</button></Show></div>
           <Show when={history().length} fallback={<p class="empty">Press Enter to add a conversion here.</p>}>
-            <ul><For each={history()}>{item => <li class="recent-item"><button onClick={() => chooseQuery(item.query)}><span>{item.query}</span><strong>{item.result}</strong></button><button class="remove-recent" type="button" onClick={event => removeRecent(event, item.query)} aria-label={`Remove ${item.query} from recent conversions`}>×</button></li>}</For></ul>
+            <ul><For each={history()}>{item => <li class="recent-item"><button onClick={() => chooseQuery(item.query)}><span>{item.query}</span><strong>{item.result}</strong></button><button class="remove-recent" type="button" onClick={event => removeRecent(event, item.query)} aria-label={`Remove ${item.query} from recent conversions`}><svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 4 8 8m0-8-8 8"/></svg></button></li>}</For></ul>
           </Show>
         </section>
       </div>
       </Show>
     </main>
 
-    <footer><span>Private · Works offline · No tracking</span><span>8 categories · MIT licensed</span></footer>
+    <footer><span>Private · Works offline · No tracking</span><span>{catalog.length} categories · MIT licensed</span></footer>
     <Show when={updateReady()}><aside class="update-notice" role="status"><span><strong>Update ready</strong> Refresh to use the latest version.</span><button type="button" onClick={() => location.reload()}>Refresh</button></aside></Show>
   </>;
 }

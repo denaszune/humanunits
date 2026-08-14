@@ -26,7 +26,23 @@ describe('conversion engine', () => {
     ['10 km in miles', 6.2137119224], ['1 lb to grams', 453.59237], ['32 f to c', 0],
     ['100 c to f', 212], ['1 gallon to liters', 3.785411784], ['1 acre to sq ft', 43560],
     ['60 mph to m/s', 26.8224], ['2 days to hours', 48], ['1 GiB to MB', 1073.741824],
+    ['1 gal (Imp) to gal (US)', 1.2009499255], ['1 oz t to oz', 1.0971428571],
+    ['5 L/100km to mpg (US)', 47.0429166], ['1 dBm to dBW', -29],
+    ['1 degree Fahrenheit to kelvin', 255.9277777778], ['1 Fahrenheit difference to kelvin difference', 5 / 9],
   ]) it(`converts ${query} accurately`, () => close(evaluate(query)?.result, expected));
+
+  it('covers scientific, electrical, radiation, thermal, and information units', () => {
+    close(evaluate('1 tesla to gauss')?.result, 10000);
+    close(evaluate('1 curie to becquerel')?.result, 3.7e10);
+    close(evaluate('1 btu per pound to joule per kilogram')?.result, 2326);
+    close(evaluate('1 nat to bit (information)')?.result, Math.LOG2E);
+  });
+
+  it('does not invent cross-category mass-to-molar concentration conversions', () => {
+    assert.equal(evaluate('1 mg/dL to mmol/L'), null);
+    assert.equal(evaluate('1 calendar month to calendar year'), null);
+    assert.equal(evaluate('1 dBV to dB SPL'), null);
+  });
 
   it('throws for incompatible direct conversions', () => {
     const length = parseQuery('1 m to ft').from;
@@ -45,10 +61,12 @@ describe('conversion engine', () => {
 describe('supported pairs catalog', () => {
   it('lists every directed pair within each category', () => {
     const catalog = supportedPairs();
-    assert.equal(catalog.length, 8);
+    assert.equal(catalog.length, 59);
     for (const group of catalog) {
-      assert.equal(group.pairs.length, group.units.length * (group.units.length - 1));
+      const sizes = Object.values(Object.groupBy(group.units, unit => unit.conversionGroup || 'linear')).map(items => items.length);
+      assert.equal(group.pairs.length, sizes.reduce((total, size) => total + size * (size - 1), 0));
       assert.ok(group.pairs.every(pair => evaluate(pair.query)));
     }
+    assert.equal(catalog.find(group => group.category === 'calendar duration').pairs.length, 0);
   });
 });
