@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { convert, evaluate, formatNumber, parseQuery, supportedPairs } from './conversion.js';
+import { convert, evaluate, formatNumber, parseQuery, supportedPairs, supportedUnits } from './conversion.js';
 
 function close(actual, expected, precision = 8) {
   assert.ok(Math.abs(actual - expected) < 10 ** -precision * Math.max(1, Math.abs(expected)), `${actual} is not close to ${expected}`);
@@ -59,6 +59,15 @@ describe('conversion engine', () => {
 });
 
 describe('supported pairs catalog', () => {
+  it('exposes a searchable unit catalog without generating pairs', () => {
+    const catalog = supportedUnits();
+    assert.equal(catalog.length, 59);
+    assert.equal(catalog.reduce((total, group) => total + group.units.length, 0), 504);
+    const micrometer = catalog.find(group => group.category === 'length').units.find(unit => unit.symbol === 'µm');
+    assert.ok(micrometer.aliases.includes('um'));
+    assert.equal(Object.hasOwn(catalog[0], 'pairs'), false);
+  });
+
   it('puts common categories, units, and pairs first', () => {
     const catalog = supportedPairs();
     assert.deepEqual(catalog.slice(0, 6).map(group => group.category), ['length', 'temperature', 'mass', 'volume', 'area', 'speed']);

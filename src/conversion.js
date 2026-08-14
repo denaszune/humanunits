@@ -130,11 +130,11 @@ const popularPairList = [
 ];
 const popularPairKeys = new Set(popularPairList.flatMap(([from, to]) => [`${from}\0${to}`, `${to}\0${from}`]));
 
-export function supportedPairs() {
+export function supportedUnits() {
   const categories = new Map();
   for (const unit of units) {
     const category = categories.get(unit.category) || [];
-    category.push({ name: unit.name, symbol: unit.symbol, query: unit.name, conversionGroup: unit.conversionGroup }); categories.set(unit.category, category);
+    category.push({ name: unit.name, symbol: unit.symbol, query: unit.name, aliases: unit.aliases, conversionGroup: unit.conversionGroup }); categories.set(unit.category, category);
   }
   return [...categories].map(([category, categoryUnits], sourceIndex) => {
     const preferred = popularUnits.get(category) || [];
@@ -142,12 +142,18 @@ export function supportedPairs() {
       const aRank = preferred.indexOf(a.unit.symbol), bRank = preferred.indexOf(b.unit.symbol);
       return (aRank < 0 ? Infinity : aRank) - (bRank < 0 ? Infinity : bRank) || a.index - b.index;
     }).map(({ unit }) => unit);
-    const pairs = units.flatMap(from => units.filter(to => to !== from && to.conversionGroup === from.conversionGroup).map(to => ({
+    const rank = popularCategoryOrder.indexOf(category);
+    return { category, units, popular: rank >= 0, rank: rank < 0 ? Infinity : rank, sourceIndex };
+  }).sort((a, b) => a.rank - b.rank || a.sourceIndex - b.sourceIndex).map(({ rank, sourceIndex, ...group }) => group);
+}
+
+export function supportedPairs() {
+  return supportedUnits().map(group => {
+    const pairs = group.units.flatMap(from => group.units.filter(to => to !== from && to.conversionGroup === from.conversionGroup).map(to => ({
       from, to, query: `1 ${from.query} in ${to.query}`, popular: popularPairKeys.has(`${from.symbol}\0${to.symbol}`)
     }))).map((pair, index) => ({ pair, index })).sort((a, b) => Number(b.pair.popular) - Number(a.pair.popular) || a.index - b.index).map(({ pair }) => pair);
-    const rank = popularCategoryOrder.indexOf(category);
-    return { category, units, pairs, popular: rank >= 0, rank: rank < 0 ? Infinity : rank, sourceIndex };
-  }).sort((a, b) => a.rank - b.rank || a.sourceIndex - b.sourceIndex).map(({ rank, sourceIndex, ...group }) => group);
+    return { ...group, pairs };
+  });
 }
 
 export function parseQuery(input) {
