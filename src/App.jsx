@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, onCleanup, Show } from 'solid-js';
+import { createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { evaluate, formatNumber, pairQuery, supportedPairs } from './conversion.js';
 
 const HISTORY_KEY = 'humanunits:history:v1';
@@ -21,10 +21,25 @@ export default function App() {
   const [history, setHistory] = createSignal(load(HISTORY_KEY));
   const [pins, setPins] = createSignal(load(PINS_KEY));
   const [copied, setCopied] = createSignal(false);
+  const [installPrompt, setInstallPrompt] = createSignal(null);
+  const [updateReady, setUpdateReady] = createSignal(false);
   const [page, setPage] = createSignal(location.hash === '#pairs' ? 'pairs' : 'converter');
   const handleHashChange = () => setPage(location.hash === '#pairs' ? 'pairs' : 'converter');
   addEventListener('hashchange', handleHashChange);
   onCleanup(() => removeEventListener('hashchange', handleHashChange));
+  onMount(() => {
+    const offerInstall = event => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+    const offerUpdate = () => setUpdateReady(true);
+    addEventListener('beforeinstallprompt', offerInstall);
+    addEventListener('humanunits:update-ready', offerUpdate);
+    onCleanup(() => {
+      removeEventListener('beforeinstallprompt', offerInstall);
+      removeEventListener('humanunits:update-ready', offerUpdate);
+    });
+  });
   const conversion = createMemo(() => evaluate(query()));
   const resultText = createMemo(() => {
     const value = conversion();
@@ -42,6 +57,25 @@ export default function App() {
   function submit(event) {
     event.preventDefault();
     remember();
+  }
+
+  function chooseQuery(text) {
+    setQuery(text);
+    remember(evaluate(text));
+  }
+
+  function removeRecent(event, queryToRemove) {
+    event.stopPropagation();
+    const next = history().filter(item => item.query !== queryToRemove);
+    setHistory(next);
+    save(HISTORY_KEY, next);
+  }
+
+  async function install() {
+    const prompt = installPrompt();
+    if (!prompt) return;
+    await prompt.prompt();
+    setInstallPrompt(null);
   }
 
   function swap() {
@@ -78,7 +112,7 @@ export default function App() {
   return <>
     <header class="site-header">
       <a class="brand" href={import.meta.env.BASE_PATH} aria-label="Human Units home"><span aria-hidden="true">HU</span> Human Units</a>
-      <nav aria-label="Main navigation"><a href="#pairs">All pairs</a></nav>
+      <Show when={installPrompt()}><button class="install-button" type="button" onClick={install}>Install app</button></Show>
     </header>
 
     <main>
@@ -91,7 +125,7 @@ export default function App() {
             <section class="pair-group" aria-labelledby={`pair-${group.category}`}>
               <h2 id={`pair-${group.category}`}>{group.category}</h2>
               <div class="pair-grid"><For each={group.pairs}>{pair =>
-                <a href="#" onClick={() => setQuery(pair.query)} title={`${pair.from.name} to ${pair.to.name}`}>
+                <a href="#" onClick={() => chooseQuery(pair.query)} title={`${pair.from.name} to ${pair.to.name}`}>
                   {pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}
                 </a>
               }</For></div>
@@ -99,18 +133,15 @@ export default function App() {
           }</For>
         </section>
       }>
-      <section class="hero" aria-labelledby="page-title">
-        <h1 id="page-title">Convert units.</h1>
-        <p class="intro">Type it naturally.</p>
-
+      <section class="hero" aria-label="Unit converter">
         <form onSubmit={submit} class="converter" role="search">
-          <label for="conversion-input">What would you like to convert?</label>
+          <div class="converter-heading"><label for="conversion-input">What would you like to convert?</label><a href="#pairs">Browse all pairs <span aria-hidden="true">→</span></a></div>
           <div class="input-wrap">
             <input id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); }}
               inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="10 km in miles" aria-describedby="input-hint" />
             <kbd aria-hidden="true">Enter</kbd>
           </div>
-          <p id="input-hint" class="hint">Try {examples.map((text, index) => <><button type="button" class="text-button" onClick={() => setQuery(text)}>{text}</button>{index < examples.length - 1 ? ', ' : ''}</>)}</p>
+          <p id="input-hint" class="hint">Try {examples.map((text, index) => <><button type="button" class="text-button" onClick={() => chooseQuery(text)}>{text}</button>{index < examples.length - 1 ? ', ' : ''}</>)}</p>
         </form>
 
         <div class="result-card" classList={{ invalid: query().trim() && !conversion() }}>
@@ -137,13 +168,13 @@ export default function App() {
         <section aria-labelledby="pinned-title">
           <div class="section-title"><h2 id="pinned-title">Pinned pairs <small>Saved on this device</small></h2><span>{pins().length}</span></div>
           <Show when={pins().length} fallback={<p class="empty">Pin the conversions you use most.</p>}>
-            <ul><For each={pins()}>{item => <li><button onClick={() => setQuery(item.query)}><span>{item.from} → {item.to}</span><small>Convert</small></button></li>}</For></ul>
+            <ul><For each={pins()}>{item => <li><button onClick={() => chooseQuery(item.query)}><span>{item.from} → {item.to}</span><small>Convert</small></button></li>}</For></ul>
           </Show>
         </section>
         <section aria-labelledby="recent-title">
           <div class="section-title"><h2 id="recent-title">Recent</h2><Show when={history().length}><button class="clear" onClick={() => { setHistory([]); save(HISTORY_KEY, []); }}>Clear</button></Show></div>
           <Show when={history().length} fallback={<p class="empty">Press Enter to add a conversion here.</p>}>
-            <ul><For each={history()}>{item => <li><button onClick={() => setQuery(item.query)}><span>{item.query}</span><strong>{item.result}</strong></button></li>}</For></ul>
+            <ul><For each={history()}>{item => <li class="recent-item"><button onClick={() => chooseQuery(item.query)}><span>{item.query}</span><strong>{item.result}</strong></button><button class="remove-recent" type="button" onClick={event => removeRecent(event, item.query)} aria-label={`Remove ${item.query} from recent conversions`}>×</button></li>}</For></ul>
           </Show>
         </section>
       </div>
@@ -151,5 +182,6 @@ export default function App() {
     </main>
 
     <footer><span>Private · Works offline · No tracking</span><span>8 categories · MIT licensed</span></footer>
+    <Show when={updateReady()}><aside class="update-notice" role="status"><span><strong>Update ready</strong> Refresh to use the latest version.</span><button type="button" onClick={() => location.reload()}>Refresh</button></aside></Show>
   </>;
 }
