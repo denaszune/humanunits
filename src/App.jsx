@@ -47,10 +47,17 @@ export default function App() {
   const searchResults = createMemo(() => {
     const needle = search().trim().toLowerCase().replace(/µ/g, 'u');
     if (!needle) return [];
-    return catalog.flatMap(group => group.units.filter(unit => [group.category, unit.name, unit.symbol, ...unit.aliases].some(value => value.toLowerCase().replace(/µ/g, 'u').includes(needle))).map(unit => ({ ...unit, category: group.category })));
+    return catalog.flatMap(group => group.units.filter(unit => isCompatible(unit, group.category) && [group.category, unit.name, unit.symbol, ...unit.aliases].some(value => value.toLowerCase().replace(/µ/g, 'u').includes(needle))).map(unit => ({ ...unit, category: group.category })));
   });
-  const [page, setPage] = createSignal(location.hash === '#pairs' ? 'pairs' : 'converter');
-  const handleHashChange = () => setPage(location.hash === '#pairs' ? 'pairs' : 'converter');
+  const compatibleUnits = createMemo(() => {
+    const from = selectedFrom();
+    if (!from) return [];
+    const group = catalog.find(item => item.category === from.category);
+    return group?.units.filter(unit => isCompatible(unit, group.category)) || [];
+  });
+  const pageFromHash = () => location.hash === '#pairs' ? 'pairs' : location.hash === '#about' ? 'about' : 'converter';
+  const [page, setPage] = createSignal(pageFromHash());
+  const handleHashChange = () => setPage(pageFromHash());
   addEventListener('hashchange', handleHashChange);
   onCleanup(() => removeEventListener('hashchange', handleHashChange));
   onMount(() => {
@@ -59,10 +66,13 @@ export default function App() {
       setInstallPrompt(event);
     };
     const offerUpdate = () => setUpdateReady(true);
+    const installed = () => setInstallPrompt(null);
     addEventListener('beforeinstallprompt', offerInstall);
+    addEventListener('appinstalled', installed);
     addEventListener('humanunits:update-ready', offerUpdate);
     onCleanup(() => {
       removeEventListener('beforeinstallprompt', offerInstall);
+      removeEventListener('appinstalled', installed);
       removeEventListener('humanunits:update-ready', offerUpdate);
     });
   });
@@ -160,13 +170,29 @@ export default function App() {
   return <>
     <header class="site-header">
       <a class="brand" href={import.meta.env.BASE_PATH} aria-label="Human Units home"><span aria-hidden="true">HU</span> Human Units</a>
-      <Show when={installPrompt()}><button class="install-button" type="button" onClick={install}>Install app</button></Show>
+      <div class="header-actions">
+        <nav aria-label="Primary navigation">
+          <a href="#" aria-current={page() === 'converter' ? 'page' : undefined}>Convert</a>
+          <a href="#pairs" aria-current={page() === 'pairs' ? 'page' : undefined}>Browse</a>
+          <a href="#about" aria-current={page() === 'about' ? 'page' : undefined}>About</a>
+        </nav>
+        <Show when={installPrompt()}><button class="install-button" type="button" onClick={install}>Install</button></Show>
+      </div>
     </header>
 
     <main>
-      <Show when={page() === 'converter'} fallback={
+      <Show when={page() === 'converter'} fallback={<Show when={page() === 'pairs'} fallback={
+        <section class="about-page" aria-labelledby="about-title">
+          <h1 id="about-title">About Human Units</h1>
+          <section><h2>What it is</h2><p>Human Units is a fast unit converter designed around natural-language input.</p></section>
+          <section><h2>Privacy</h2><p>It works offline, requires no account, and includes no tracking. Recent conversions and pinned pairs are stored only in local storage on this device.</p></section>
+          <section><h2>Conversion coverage</h2><p>Explore many everyday, scientific, computing, and specialist measurement categories. Where ambiguity matters, the catalog distinguishes units such as US and Imperial measurements.</p></section>
+          <section><h2>Accuracy</h2><p>Most ordinary conversions are deterministic. Quantities such as temperature, fuel economy, and calendar durations receive the special handling their definitions require.</p></section>
+          <section><h2>Open source</h2><p>Human Units is open-source software provided under the MIT license.</p></section>
+          <section><h2>Install</h2><p>You can install Human Units as a PWA when your browser and device support it. The Install action appears in the header when installation is available.</p></section>
+        </section>
+      }>
         <section class="browse-page" aria-labelledby="browse-title">
-          <a class="back-link" href="#">← Converter</a>
           <div class="browse-heading">
             <div><h1 id="browse-title">Browse supported units</h1><p>Explore the units and measurement categories supported by Human Units.</p></div>
             <strong>{unitCount} units across {catalog.length} categories</strong>
@@ -176,28 +202,28 @@ export default function App() {
           <Show when={search().trim()}>
             <section class="search-results" aria-labelledby="search-results-title">
               <div class="browse-section-heading"><h2 id="search-results-title">Search results</h2><span aria-live="polite">{searchResults().length} units</span></div>
-              <Show when={searchResults().length} fallback={<p class="empty">No supported units or categories match “{search()}”.</p>}>
-                <div class="result-grid"><For each={searchResults()}>{unit => <button type="button" disabled={!isCompatible(unit, unit.category)} onClick={() => chooseUnit(unit, unit.category)} aria-label={`${unit.name}, ${unit.symbol}, ${titleCase(unit.category)}`}><strong>{unit.symbol} <span>— {unit.name}</span></strong><small>{titleCase(unit.category)}</small></button>}</For></div>
+              <Show when={searchResults().length} fallback={<p class="empty">{selectedFrom() ? 'No compatible units' : 'No supported units or categories'} match “{search()}”.</p>}>
+                <div class="result-grid"><For each={searchResults()}>{unit => <button type="button" onClick={() => chooseUnit(unit, unit.category)} aria-label={`${unit.name}, ${unit.symbol}, ${titleCase(unit.category)}`}><strong>{unit.symbol} <span>— {unit.name}</span></strong><small>{titleCase(unit.category)}</small></button>}</For></div>
               </Show>
             </section>
           </Show>
 
-          <Show when={selectedFrom()}>{from => <div class="selection-status" role="status"><span><strong>From: {from().name} ({from().symbol})</strong> — choose a destination unit</span><button type="button" onClick={() => setSelectedFrom(null)}>Clear</button></div>}</Show>
+          <Show when={selectedFrom()}>{from => <section class="destination-picker" aria-labelledby="destination-title"><div class="selection-status" role="status"><span><strong>From: {from().name} ({from().symbol})</strong><small id="destination-title">Choose a destination unit</small></span><button type="button" onClick={() => { setSelectedFrom(null); setSearch(''); }}>Clear</button></div><Show when={!search().trim()}><div class="result-grid"><For each={compatibleUnits()}>{unit => <button type="button" onClick={() => chooseUnit(unit, from().category)}><strong>{unit.symbol} <span>— {unit.name}</span></strong><small>{titleCase(from().category)}</small></button>}</For></div></Show></section>}</Show>
 
-          <section class="popular-pairs" aria-labelledby="popular-pairs-title">
+          <Show when={!selectedFrom()}><section class="popular-pairs" aria-labelledby="popular-pairs-title">
             <div class="browse-section-heading"><h2 id="popular-pairs-title">Popular conversions</h2></div>
             <div class="compact-pairs"><For each={popularPairs}>{pair => <a href="#" onClick={() => chooseQuery(pair.query)} title={`${pair.from.name} to ${pair.to.name}`}><strong>{pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}</strong></a>}</For></div>
-          </section>
+          </section></Show>
 
-          <section class="category-browser" aria-labelledby="categories-title">
+          <Show when={!selectedFrom()}><section class="category-browser" aria-labelledby="categories-title">
             <div class="browse-section-heading"><h2 id="categories-title">All categories</h2><span>{catalog.length} categories</span></div>
             <For each={categorySections}>{([sectionName, groups]) => <section class="category-section" aria-labelledby={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}><h3 id={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}>{sectionName}</h3><div class="category-grid"><For each={groups}>{group => <article class="category-item"><button class="category-card" type="button" aria-expanded={expanded().includes(group.category)} onClick={() => toggleCategory(group.category)}><span><strong>{titleCase(group.category)}</strong><small>{group.units.length} units</small></span><span aria-hidden="true">{expanded().includes(group.category) ? '−' : '+'}</span></button><Show when={expanded().includes(group.category)}><div class="unit-panel"><p class="sr-only">Choose a unit from {titleCase(group.category)}. The first unit becomes the source; then choose a compatible destination.</p><div class="unit-chips"><For each={group.units}>{unit => <button type="button" classList={{ selected: selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol }} disabled={selectedFrom() && !isCompatible(unit, group.category) && !(selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol)} onClick={() => chooseUnit(unit, group.category)} aria-pressed={selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol} title={unit.name}><strong>{unit.symbol}</strong><span>{unit.name}</span></button>}</For></div></div></Show></article>}</For></div></section>}</For>
-          </section>
+          </section></Show>
         </section>
-      }>
+      </Show>}>
       <section class="hero" aria-label="Unit converter">
         <form onSubmit={submit} class="converter" role="search">
-          <div class="converter-heading"><label for="conversion-input">What would you like to convert?</label><a href="#pairs">Browse units <span aria-hidden="true">→</span></a></div>
+          <div class="converter-heading"><label for="conversion-input">What would you like to convert?</label></div>
           <div class="input-wrap">
             <input id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); }}
               inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="10 km in miles" aria-describedby="input-hint" />
@@ -242,7 +268,7 @@ export default function App() {
       </Show>
     </main>
 
-    <footer><span>Private · Works offline · No tracking</span><span>{catalog.length} categories · MIT licensed</span></footer>
+    <footer><span>Private · Works offline · No tracking</span><span>MIT licensed</span></footer>
     <Show when={updateReady()}><aside class="update-notice" role="status"><span><strong>Update ready</strong> Refresh to use the latest version.</span><button type="button" onClick={() => location.reload()}>Refresh</button></aside></Show>
   </>;
 }
