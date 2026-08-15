@@ -319,6 +319,6 @@ export default function App() {
     </main>
 
     <footer><span>Private · Works offline · No tracking</span><a href={licensePath} onClick={event => handleInternalLink(event, licensePath)}>MIT licensed</a></footer>
-    <Show when={updateReady()}><aside class="update-notice" role="status"><span><strong>Update ready</strong> Refresh to use the latest version.</span><button type="button" onClick={() => location.reload()}>Refresh</button></aside></Show>
+    <Show when={updateReady()}><aside class="update-notice" role="status"><span><strong>Update ready</strong> Refresh to use the latest version.</span><button type="button" onClick={() => dispatchEvent(new Event('humanunits:apply-update'))}>Refresh</button></aside></Show>
   </div>;
 }
