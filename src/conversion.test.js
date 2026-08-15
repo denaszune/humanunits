@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { convert, evaluate, formatNumber, parseQuery, supportedPairs, supportedUnits } from './conversion.js';
+import { convert, evaluate, formatNumber, formatValue, parseQuery, supportedPairs, supportedUnits } from './conversion.js';
 
 function close(actual, expected, precision = 8) {
   assert.ok(Math.abs(actual - expected) < 10 ** -precision * Math.max(1, Math.abs(expected)), `${actual} is not close to ${expected}`);
@@ -18,6 +18,7 @@ describe('natural-language parser', () => {
 
   it('accepts clock-style and arbitrary-distance pace expressions', () => {
     assert.equal(parseQuery('7:00 min/mi to min/km')?.from.category, 'pace');
+    assert.equal(parseQuery('4:45 minute per mile in minute per kilometer')?.from.category, 'pace');
     assert.equal(parseQuery('1:20 /100 yd to /100 m')?.to.category, 'pace');
     assert.equal(parseQuery('72 sec/400 m to min/mi')?.from.category, 'pace');
   });
@@ -46,6 +47,7 @@ describe('conversion engine', () => {
 
   it('converts generalized paces and compatible pace/speed values', () => {
     close(evaluate('7:00 min/mi to min/km')?.result, 4.349598345);
+    close(evaluate('4:45 minute per mile in minute per kilometer')?.result, 2.9515131631);
     close(evaluate('4:00 min/km to min/mi')?.result, 6.437376);
     close(evaluate('1:20 /100 yd to /100 m')?.result, 87.48906387);
     close(evaluate('1:30 /100 m to /100 yd')?.result, 82.296);
@@ -74,6 +76,14 @@ describe('conversion engine', () => {
     assert.equal(formatNumber(-0), '0');
     assert.equal(formatNumber(1.25e12), '1.25e+12');
     assert.equal(formatNumber(1.25e-8), '1.25e-8');
+  });
+
+  it('formats pace results like clocks when requested', () => {
+    const conversion = evaluate('4:45 minute per mile in minute per kilometer');
+    assert.equal(formatValue(conversion.result, conversion.to, conversion.clockStyle), '2:57');
+    assert.equal(formatValue(conversion.result, conversion.to), '2.951513163');
+    const swimPace = evaluate('1:20 /100 yd to /100 m');
+    assert.equal(formatValue(swimPace.result, swimPace.to, swimPace.clockStyle), '1:27');
   });
 });
 

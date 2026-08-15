@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { evaluate, formatNumber, pairQuery, supportedUnits } from './conversion.js';
+import { evaluate, formatValue, pairQuery, supportedUnits } from './conversion.js';
 
 const HISTORY_KEY = 'humanunits:history:v1';
 const PINS_KEY = 'humanunits:pins:v1';
@@ -119,7 +119,7 @@ export default function App() {
   const conversion = createMemo(() => evaluate(query()));
   const resultText = createMemo(() => {
     const value = conversion();
-    return value ? `${formatNumber(value.result)} ${value.to.symbol}` : '';
+    return value ? `${formatValue(value.result, value.to, value.clockStyle)} ${value.to.symbol}` : '';
   });
 
   createEffect(() => {
@@ -138,7 +138,7 @@ export default function App() {
 
   function remember(value = conversion()) {
     if (!value) return;
-    const entry = { query: pairQuery(value.from, value.to, value.value), result: `${formatNumber(value.result)} ${value.to.symbol}` };
+    const entry = { query: pairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle)), result: `${formatValue(value.result, value.to, value.clockStyle)} ${value.to.symbol}` };
     const next = [entry, ...recentConversions().filter(item => item.query !== entry.query)].slice(0, 8);
     setRecentConversions(next);
     save(HISTORY_KEY, next);
@@ -199,7 +199,7 @@ export default function App() {
   function swap() {
     const value = conversion();
     if (!value) return;
-    setQuery(pairQuery(value.to, value.from, value.result));
+    setQuery(pairQuery(value.to, value.from, formatValue(value.result, value.to, value.clockStyle)));
     requestAnimationFrame(() => remember());
   }
 
@@ -287,11 +287,11 @@ export default function App() {
         <div class="result-card" classList={{ invalid: query().trim() && !conversion() }}>
           <div class="result-heading">
             <span>{conversion() ? conversion().from.category : 'Result'}</span>
-            <Show when={conversion()}><span>{formatNumber(conversion().value)} {conversion().from.symbol}</span></Show>
+            <Show when={conversion()}><span>{formatValue(conversion().value, conversion().from, conversion().clockStyle)} {conversion().from.symbol}</span></Show>
           </div>
           <div class="result" aria-live="polite" aria-atomic="true">
             <Show when={conversion()} fallback={<span class="empty-result">Your result appears here.</span>}>
-              <strong>{formatNumber(conversion().result)}</strong> <span>{conversion().to.symbol}</span>
+              <strong>{formatValue(conversion().result, conversion().to, conversion().clockStyle)}</strong> <span>{conversion().to.symbol}</span>
             </Show>
           </div>
           <Show when={conversion()}>

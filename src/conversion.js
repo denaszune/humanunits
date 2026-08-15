@@ -178,15 +178,19 @@ export function parseQuery(input) {
   };
   const fromPace = paceUnit(match[2], match[1].includes(':'));
   const toPace = paceUnit(match[3]);
-  const value = match[1].includes(':') ? clockValue : Number(match[1]);
   const fromMatches = fromPace ? [fromPace] : byAlias.get(clean(match[2])) || [];
   const toMatches = toPace ? [toPace] : byAlias.get(clean(match[3])) || [];
   const candidates = fromMatches.flatMap(from => toMatches.filter(to =>
     to.category === from.category && to.conversionGroup === from.conversionGroup ||
     from.conversionGroup === 'pace-speed' && to.conversionGroup === 'pace-speed'
   ).map(to => ({from,to})));
-  if (!Number.isFinite(value) || !candidates.length) return null;
-  const {from,to} = candidates[0]; return { value, from, to };
+  if (!candidates.length) return null;
+  const {from,to} = candidates[0];
+  const clockUnitSeconds = from.category === 'pace' && !fromPace
+    ? /^(?:min)\//.test(from.symbol) ? 60 : /^(?:h)\//.test(from.symbol) ? 3600 : 1
+    : 1;
+  const value = match[1].includes(':') ? clockValue / clockUnitSeconds : Number(match[1]);
+  return Number.isFinite(value) ? { value, from, to, clockStyle: match[1].includes(':') } : null;
 }
 
 export function convert(value, from, to) {
@@ -198,4 +202,14 @@ export function convert(value, from, to) {
 }
 export function evaluate(input) { const parsed=parseQuery(input); return parsed ? {...parsed,result:convert(parsed.value,parsed.from,parsed.to)} : null; }
 export function formatNumber(value) { if(!Number.isFinite(value))return String(value);if(Object.is(value,-0))value=0;const magnitude=Math.abs(value);if(magnitude!==0&&(magnitude>=1e12||magnitude<1e-7)){const [c,e]=value.toExponential(8).split('e');return `${c.replace(/\.?0+$/,'')}e${e}`;}return new Intl.NumberFormat('en-US',{maximumSignificantDigits:10}).format(value); }
+export function formatValue(value, unit, clockStyle = false) {
+  if (!clockStyle || unit?.category !== 'pace' || !Number.isFinite(value)) return formatNumber(value);
+  const unitSeconds = /^min\//.test(unit.symbol) ? 60 : /^h\//.test(unit.symbol) ? 3600 : 1;
+  const roundedSeconds = Math.round(Math.abs(value) * unitSeconds);
+  const hours = Math.floor(roundedSeconds / 3600);
+  const minutes = Math.floor(roundedSeconds % 3600 / 60);
+  const seconds = String(roundedSeconds % 60).padStart(2, '0');
+  const clock = hours ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}` : `${minutes}:${seconds}`;
+  return value < 0 ? `-${clock}` : clock;
+}
 export function pairQuery(from,to,value=1) { return `${value} ${from.name || from.symbol} in ${to.name || to.symbol}`; }
