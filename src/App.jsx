@@ -109,6 +109,7 @@ export default function App() {
     addEventListener('beforeinstallprompt', offerInstall);
     addEventListener('appinstalled', installed);
     addEventListener('humanunits:update-ready', offerUpdate);
+    if (matchMedia('(pointer: fine)').matches) conversionInput?.focus({ preventScroll: true });
     onCleanup(() => {
       removeEventListener('beforeinstallprompt', offerInstall);
       removeEventListener('appinstalled', installed);
@@ -228,7 +229,10 @@ export default function App() {
 
   return <div class="app-shell" classList={{ 'convert-shell': page() === 'converter' }}>
     <header class="site-header">
-      <a class="brand" href={appRoot} onClick={event => handleInternalLink(event, appRoot)} aria-label="Human Units home"><span aria-hidden="true">HU</span> Human Units</a>
+      <a class="brand" href={appRoot} onClick={event => handleInternalLink(event, appRoot)} aria-label="Human Units home">
+        <svg class="brand-mark" aria-hidden="true" viewBox="0 0 36 36"><rect width="36" height="36" rx="7"/><path d="M8.5 9v18M8.5 18h8M16.5 9v18M21 9v11.5c0 4.2 2.2 6.5 5.4 6.5s5.1-2.3 5.1-6.5V9M5.5 13h3M5.5 23h3"/></svg>
+        <span>Human Units</span>
+      </a>
       <div class="header-actions">
         <nav aria-label="Primary navigation">
           <a href={appRoot} onClick={event => handleInternalLink(event, appRoot)} aria-current={page() === 'converter' ? 'page' : undefined}>Convert</a>
@@ -274,7 +278,7 @@ export default function App() {
         <form onSubmit={submit} class="converter" role="search">
           <div class="converter-heading"><label for="conversion-input">What would you like to convert?</label></div>
           <div class="input-wrap">
-            <input ref={conversionInput} id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); }}
+            <input ref={conversionInput} id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); }} onKeyDown={event => { if (event.key === 'Escape' && query()) { event.preventDefault(); setQuery(''); setCopied(false); } }}
               inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="10 km in miles" aria-describedby="input-hint" />
           </div>
           <p id="input-hint" class="hint">Try {examples.map((text, index) => <><button type="button" class="text-button" onClick={() => chooseQuery(text)}>{text}</button>{index < examples.length - 1 ? ', ' : ''}</>)}</p>
