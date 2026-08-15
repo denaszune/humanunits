@@ -21,7 +21,7 @@ export default defineConfig({
     title: 'Human Units',
     meta: {
       description: 'Fast, private, offline unit conversion in natural language',
-      themeColor: '#173f35',
+      themeColor: '#123f35',
     },
     tags: [
       { tag: 'link', attrs: { rel: 'manifest', href: 'manifest.webmanifest' }, head: true },
