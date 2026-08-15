@@ -4,6 +4,32 @@ import { evaluate, formatNumber, pairQuery, supportedUnits } from './conversion.
 const HISTORY_KEY = 'humanunits:history:v1';
 const PINS_KEY = 'humanunits:pins:v1';
 const examples = ['10 km in miles', '72 f to c', '5 lb to kg'];
+const appRoot = import.meta.env.BASE_PATH === './' ? '/' : import.meta.env.BASE_PATH;
+const licensePath = `${appRoot}license`;
+
+function AboutPage(props) {
+  return <section class="about-page" aria-labelledby="about-title">
+    <h1 id="about-title">About Human Units</h1>
+    <section><h2>What it is</h2><p>Human Units is a fast unit converter designed around natural-language input.</p></section>
+    <section><h2>Privacy</h2><p>It works offline, requires no account, and includes no tracking. Recent conversions and pinned pairs are stored only in local storage on this device.</p></section>
+    <section><h2>Conversion coverage</h2><p>Explore many everyday, scientific, computing, and specialist measurement categories. Where ambiguity matters, the catalog distinguishes units such as US and Imperial measurements.</p></section>
+    <section><h2>Accuracy</h2><p>Most ordinary conversions are deterministic. Quantities such as temperature, fuel economy, and calendar durations receive the special handling their definitions require.</p></section>
+    <section><h2>Open source</h2><p>Human Units is open-source software provided under the <a href={licensePath} onClick={event => props.onNavigate(event, licensePath)}>MIT License</a>.</p></section>
+    <section><h2>Install</h2><p>You can install Human Units as a PWA when your browser and device support it. The Install action appears in the header when installation is available.</p></section>
+  </section>;
+}
+
+function LicensePage() {
+  return <article class="license-page" aria-labelledby="license-title">
+    <h1 id="license-title">MIT License</h1>
+    <p class="license-copyright">Copyright © 2026 Andrew Loiacono</p>
+    <div class="license-text">
+      <p>Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:</p>
+      <p>The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.</p>
+      <p>THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</p>
+    </div>
+  </article>;
+}
 
 function load(key) {
   try {
@@ -55,11 +81,23 @@ export default function App() {
     const group = catalog.find(item => item.category === from.category);
     return group?.units.filter(unit => isCompatible(unit, group.category)) || [];
   });
-  const pageFromHash = () => location.hash === '#pairs' ? 'pairs' : location.hash === '#about' ? 'about' : 'converter';
-  const [page, setPage] = createSignal(pageFromHash());
-  const handleHashChange = () => setPage(pageFromHash());
+  const pageFromLocation = () => location.pathname.replace(/\/$/, '').endsWith('/license') ? 'license' : location.hash === '#pairs' ? 'pairs' : location.hash === '#about' ? 'about' : 'converter';
+  const [page, setPage] = createSignal(pageFromLocation());
+  const handleLocationChange = () => setPage(pageFromLocation());
+  const handleInternalLink = (event, url) => {
+    if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    history.pushState(null, '', url);
+    handleLocationChange();
+    scrollTo({ top: 0, behavior: 'auto' });
+  };
+  const handleHashChange = handleLocationChange;
   addEventListener('hashchange', handleHashChange);
-  onCleanup(() => removeEventListener('hashchange', handleHashChange));
+  addEventListener('popstate', handleLocationChange);
+  onCleanup(() => {
+    removeEventListener('hashchange', handleHashChange);
+    removeEventListener('popstate', handleLocationChange);
+  });
   onMount(() => {
     const offerInstall = event => {
       event.preventDefault();
@@ -169,29 +207,19 @@ export default function App() {
 
   return <>
     <header class="site-header">
-      <a class="brand" href={import.meta.env.BASE_PATH} aria-label="Human Units home"><span aria-hidden="true">HU</span> Human Units</a>
+      <a class="brand" href={appRoot} onClick={event => handleInternalLink(event, appRoot)} aria-label="Human Units home"><span aria-hidden="true">HU</span> Human Units</a>
       <div class="header-actions">
         <nav aria-label="Primary navigation">
-          <a href="#" aria-current={page() === 'converter' ? 'page' : undefined}>Convert</a>
-          <a href="#pairs" aria-current={page() === 'pairs' ? 'page' : undefined}>Browse</a>
-          <a href="#about" aria-current={page() === 'about' ? 'page' : undefined}>About</a>
+          <a href={appRoot} onClick={event => handleInternalLink(event, appRoot)} aria-current={page() === 'converter' ? 'page' : undefined}>Convert</a>
+          <a href={`${appRoot}#pairs`} onClick={event => handleInternalLink(event, `${appRoot}#pairs`)} aria-current={page() === 'pairs' ? 'page' : undefined}>Browse</a>
+          <a href={`${appRoot}#about`} onClick={event => handleInternalLink(event, `${appRoot}#about`)} aria-current={page() === 'about' ? 'page' : undefined}>About</a>
         </nav>
         <Show when={installPrompt()}><button class="install-button" type="button" onClick={install}>Install</button></Show>
       </div>
     </header>
 
     <main>
-      <Show when={page() === 'converter'} fallback={<Show when={page() === 'pairs'} fallback={
-        <section class="about-page" aria-labelledby="about-title">
-          <h1 id="about-title">About Human Units</h1>
-          <section><h2>What it is</h2><p>Human Units is a fast unit converter designed around natural-language input.</p></section>
-          <section><h2>Privacy</h2><p>It works offline, requires no account, and includes no tracking. Recent conversions and pinned pairs are stored only in local storage on this device.</p></section>
-          <section><h2>Conversion coverage</h2><p>Explore many everyday, scientific, computing, and specialist measurement categories. Where ambiguity matters, the catalog distinguishes units such as US and Imperial measurements.</p></section>
-          <section><h2>Accuracy</h2><p>Most ordinary conversions are deterministic. Quantities such as temperature, fuel economy, and calendar durations receive the special handling their definitions require.</p></section>
-          <section><h2>Open source</h2><p>Human Units is open-source software provided under the MIT license.</p></section>
-          <section><h2>Install</h2><p>You can install Human Units as a PWA when your browser and device support it. The Install action appears in the header when installation is available.</p></section>
-        </section>
-      }>
+      <Show when={page() === 'converter'} fallback={<Show when={page() === 'pairs'} fallback={<Show when={page() === 'about'} fallback={<LicensePage />}><AboutPage onNavigate={handleInternalLink} /></Show>}>
         <section class="browse-page" aria-labelledby="browse-title">
           <div class="browse-heading">
             <div><h1 id="browse-title">Browse supported units</h1><p>Explore the units and measurement categories supported by Human Units.</p></div>
@@ -268,7 +296,7 @@ export default function App() {
       </Show>
     </main>
 
-    <footer><span>Private · Works offline · No tracking</span><span>MIT licensed</span></footer>
+    <footer><span>Private · Works offline · No tracking</span><a href={licensePath} onClick={event => handleInternalLink(event, licensePath)}>MIT licensed</a></footer>
     <Show when={updateReady()}><aside class="update-notice" role="status"><span><strong>Update ready</strong> Refresh to use the latest version.</span><button type="button" onClick={() => location.reload()}>Refresh</button></aside></Show>
   </>;
 }
