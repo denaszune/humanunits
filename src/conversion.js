@@ -28,8 +28,10 @@ affine('°N','degree Newton',v=>v*100/33+273.15,v=>(v-273.15)*33/100,['newton','
 affine('°Rø','degree Romer',v=>(v-7.5)*40/21+273.15,v=>(v-273.15)*21/40+7.5,['romer']);
 
 add('speed', [['m/s','meter per second',1],['km/h','kilometer per hour',1/3.6,['kph']],['mph','mile per hour',.44704],['ft/s','foot per second',.3048],['kn','knot',.5144444444444445],['Mach','Mach (approximate)',340.2933,['mach']]]);
+for (const unit of units.filter(unit => unit.category === 'speed')) unit.conversionGroup = 'pace-speed';
 // Pace factors are seconds per meter. This is linear because every unit is time per a fixed distance.
-add('pace', [['s/m','second per meter',1],['min/km','minute per kilometer',.06],['min/mi','minute per mile',60/1609.344],['s/100m','second per 100 meters',.01],['min/100m','minute per 100 meters',.6],['s/100yd','second per 100 yards',1/91.44],['min/100yd','minute per 100 yards',60/91.44],['s/50m','second per 50 meters',.02],['s/50yd','second per 50 yards',1/45.72]]);
+add('pace', [['min/mi','minute per mile',60/1609.344,['/mi']],['min/km','minute per kilometer',.06,['/km']],['sec/400 m','second per 400 meters',1/400,['s/400m','sec/400m','/400m']],['min/100 m','minute per 100 meters',.6,['min/100m']],['min/100 yd','minute per 100 yards',60/91.44,['min/100yd']],['min/500 m','minute per 500 meters',.12,['min/500m']],['s/m','second per meter',1],['sec/100 m','second per 100 meters',.01,['s/100m','sec/100m']],['sec/100 yd','second per 100 yards',1/91.44,['s/100yd','sec/100yd']],['sec/50 m','second per 50 meters',.02,['s/50m','sec/50m']],['sec/50 yd','second per 50 yards',1/45.72,['s/50yd','sec/50yd']]]);
+for (const unit of units.filter(unit => unit.category === 'pace')) unit.conversionGroup = 'pace-speed';
 add('time', [['ns','nanosecond',1e-9],['µs','microsecond',1e-6],['ms','millisecond',.001],['s','second',1],['min','minute',60],['h','hour',3600,['hr']],['d','day',86400],['wk','week',604800],['fortnight','fortnight',1209600],['yr365','common year',31536000],['yr366','leap year',31622400],['a','Julian year',31557600]]);
 add('angle', [['rad','radian',1],['mrad','milliradian',.001],['µrad','microradian',1e-6],['°','degree',Math.PI/180,['deg']],['′','arcminute',Math.PI/10800],['″','arcsecond',Math.PI/648000],['gon','gradian',Math.PI/200],['rev','revolution',Math.PI*2,['turn']]]);
 add('frequency', [['µHz','microhertz',1e-6],['mHz','millihertz',.001],['Hz','hertz',1],['kHz','kilohertz',1e3],['MHz','megahertz',1e6],['GHz','gigahertz',1e9],['THz','terahertz',1e12],['rpm','revolution per minute',1/60],['rps','revolution per second',1],['cpm','cycle per minute',1/60]]);
@@ -114,11 +116,11 @@ for (const unit of units) for (const alias of unit.aliases) {
   matches.push(unit); byAlias.set(alias, matches);
 }
 
-const popularCategoryOrder = ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'time', 'digital storage', 'energy', 'pressure', 'power', 'fuel economy'];
+const popularCategoryOrder = ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'time', 'digital storage', 'energy', 'pressure', 'power', 'fuel economy'];
 const popularUnits = new Map(Object.entries({
   length: ['km', 'mi', 'm', 'ft', 'cm', 'in'], temperature: ['°C', '°F', 'K'], mass: ['kg', 'lb', 'g', 'oz'],
   volume: ['L', 'gal (US)', 'mL', 'fl oz (US)', 'cup (US)'], area: ['m²', 'ft²', 'ha', 'acre'],
-  speed: ['km/h', 'mph', 'm/s'], time: ['min', 'h', 'd', 's'], 'digital storage': ['MB', 'MiB', 'GB', 'GiB'],
+  speed: ['km/h', 'mph', 'm/s'], pace: ['min/mi', 'min/km', 'sec/400 m', 'min/100 m', 'min/100 yd', 'min/500 m'], time: ['min', 'h', 'd', 's'], 'digital storage': ['MB', 'MiB', 'GB', 'GiB'],
   energy: ['kJ', 'kcal', 'kWh', 'J'], pressure: ['bar', 'psi', 'kPa'], power: ['kW', 'hp', 'W'],
   'fuel economy': ['L/100km', 'mpg (US)', 'km/L']
 }));
@@ -158,19 +160,41 @@ export function supportedPairs() {
 
 export function parseQuery(input) {
   const normalized = input.trim().replace(/[−–—]/g, '-').replace(/,/g, '');
-  const match = normalized.match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)\s+(.+?)\s+(?:in(?:to)?|to|as)\s+(.+?)\s*\??$/i);
+  const match = normalized.match(/^([+-]?(?:(?:\d+:)?\d+(?::\d+(?:\.\d*)?)?|(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?))\s+(.+?)\s+(?:in(?:to)?|to|as|→)\s+(.+?)\s*\??$/i);
   if (!match) return null;
   const clean = value => words(value).replace(/^degrees?\s+/, '');
-  const value = Number(match[1]), fromMatches = byAlias.get(clean(match[2])) || [], toMatches = byAlias.get(clean(match[3])) || [];
-  const candidates = fromMatches.flatMap(from => toMatches.filter(to => to.category === from.category && to.conversionGroup === from.conversionGroup).map(to => ({from,to})));
+  const clockParts = match[1].split(':').map(Number);
+  const clockValue = clockParts.reduce((total, part) => total * 60 + part, 0);
+  const paceUnit = (text, clockInput = false) => {
+    const pace = clean(text).match(/^(?:(s|sec|second|min|minute|h|hr|hour)\s*)?\/\s*(?:(\d+(?:\.\d+)?)\s*)?(.+)$/);
+    if (!pace) return null;
+    const distance = Number(pace[2] || 1);
+    const length = (byAlias.get(clean(pace[3])) || []).find(unit => unit.category === 'length');
+    if (!length || !Number.isFinite(distance) || distance <= 0) return null;
+    const timeSymbol = pace[1] || (clockInput || distance * length.factor <= 500 ? 'sec' : 'min');
+    const seconds = clockInput ? 1 : /^(?:h|hr|hour)$/.test(timeSymbol) ? 3600 : /^(?:min|minute)$/.test(timeSymbol) ? 60 : 1;
+    const distanceSymbol = `${pace[2] ? `${pace[2]} ` : ''}${length.symbol}`;
+    return { category: 'pace', conversionGroup: 'pace-speed', symbol: `${pace[1] ? `${pace[1]}/` : '/'}${distanceSymbol}`, name: `${timeSymbol} per ${distanceSymbol}`, factor: seconds / (distance * length.factor) };
+  };
+  const fromPace = paceUnit(match[2], match[1].includes(':'));
+  const toPace = paceUnit(match[3]);
+  const value = match[1].includes(':') ? clockValue : Number(match[1]);
+  const fromMatches = fromPace ? [fromPace] : byAlias.get(clean(match[2])) || [];
+  const toMatches = toPace ? [toPace] : byAlias.get(clean(match[3])) || [];
+  const candidates = fromMatches.flatMap(from => toMatches.filter(to =>
+    to.category === from.category && to.conversionGroup === from.conversionGroup ||
+    from.conversionGroup === 'pace-speed' && to.conversionGroup === 'pace-speed'
+  ).map(to => ({from,to})));
   if (!Number.isFinite(value) || !candidates.length) return null;
   const {from,to} = candidates[0]; return { value, from, to };
 }
 
 export function convert(value, from, to) {
-  if (from.category !== to.category || from.conversionGroup !== to.conversionGroup) throw new Error('Units must belong to the same conversion group');
+  const paceToSpeed = from.conversionGroup === 'pace-speed' && to.conversionGroup === 'pace-speed' && from.category !== to.category;
+  if (!paceToSpeed && (from.category !== to.category || from.conversionGroup !== to.conversionGroup)) throw new Error('Units must belong to the same conversion group');
   const base = from.toBase ? from.toBase(value) : value * from.factor;
-  return to.fromBase ? to.fromBase(base) : base / to.factor;
+  const compatibleBase = paceToSpeed ? 1 / base : base;
+  return to.fromBase ? to.fromBase(compatibleBase) : compatibleBase / to.factor;
 }
 export function evaluate(input) { const parsed=parseQuery(input); return parsed ? {...parsed,result:convert(parsed.value,parsed.from,parsed.to)} : null; }
 export function formatNumber(value) { if(!Number.isFinite(value))return String(value);if(Object.is(value,-0))value=0;const magnitude=Math.abs(value);if(magnitude!==0&&(magnitude>=1e12||magnitude<1e-7)){const [c,e]=value.toExponential(8).split('e');return `${c.replace(/\.?0+$/,'')}e${e}`;}return new Intl.NumberFormat('en-US',{maximumSignificantDigits:10}).format(value); }

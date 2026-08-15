@@ -51,7 +51,7 @@ export default function App() {
   const [updateReady, setUpdateReady] = createSignal(false);
   const catalog = supportedUnits();
   const unitCount = catalog.reduce((total, group) => total + group.units.length, 0);
-  const popularPairSymbols = [['km', 'mi'], ['°C', '°F'], ['kg', 'lb'], ['mL', 'cup (US)'], ['bar', 'psi'], ['GB', 'GiB']];
+  const popularPairSymbols = [['km', 'mi'], ['°C', '°F'], ['kg', 'lb'], ['cm', 'in'], ['L', 'gal (US)'], ['min/mi', 'min/km']];
   const popularPairs = popularPairSymbols.map(([fromSymbol, toSymbol]) => {
     const group = catalog.find(item => item.units.some(unit => unit.symbol === fromSymbol) && item.units.some(unit => unit.symbol === toSymbol));
     const from = group?.units.find(unit => unit.symbol === fromSymbol);
@@ -80,8 +80,7 @@ export default function App() {
   const compatibleUnits = createMemo(() => {
     const from = selectedFrom();
     if (!from) return [];
-    const group = catalog.find(item => item.category === from.category);
-    return group?.units.filter(unit => isCompatible(unit, group.category)) || [];
+    return catalog.flatMap(group => group.units.filter(unit => isCompatible(unit, group.category)).map(unit => ({ ...unit, category: group.category })));
   });
   const pageFromLocation = () => location.pathname.replace(/\/$/, '').endsWith('/license') ? 'license' : location.hash === '#pairs' ? 'pairs' : location.hash === '#about' ? 'about' : 'converter';
   const [page, setPage] = createSignal(pageFromLocation());
@@ -166,7 +165,7 @@ export default function App() {
 
   function isCompatible(unit, category) {
     const from = selectedFrom();
-    return !from || (from.category === category && from.symbol !== unit.symbol && from.conversionGroup === unit.conversionGroup);
+    return !from || (from.symbol !== unit.symbol && (from.category === category || from.conversionGroup === 'pace-speed' && unit.conversionGroup === 'pace-speed'));
   }
 
   function chooseUnit(unit, category) {
