@@ -44,7 +44,7 @@ function save(key, value) {
 
 export default function App() {
   const [query, setQuery] = createSignal('');
-  const [history, setHistory] = createSignal(load(HISTORY_KEY));
+  const [recentConversions, setRecentConversions] = createSignal(load(HISTORY_KEY));
   const [pins, setPins] = createSignal(load(PINS_KEY));
   const [copied, setCopied] = createSignal(false);
   const [installPrompt, setInstallPrompt] = createSignal(null);
@@ -87,7 +87,7 @@ export default function App() {
   const handleInternalLink = (event, url) => {
     if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    history.pushState(null, '', url);
+    window.history.pushState(null, '', url);
     handleLocationChange();
     scrollTo({ top: 0, behavior: 'auto' });
   };
@@ -123,8 +123,8 @@ export default function App() {
   function remember(value = conversion()) {
     if (!value) return;
     const entry = { query: pairQuery(value.from, value.to, value.value), result: `${formatNumber(value.result)} ${value.to.symbol}` };
-    const next = [entry, ...history().filter(item => item.query !== entry.query)].slice(0, 8);
-    setHistory(next);
+    const next = [entry, ...recentConversions().filter(item => item.query !== entry.query)].slice(0, 8);
+    setRecentConversions(next);
     save(HISTORY_KEY, next);
   }
 
@@ -162,8 +162,8 @@ export default function App() {
 
   function removeRecent(event, queryToRemove) {
     event.stopPropagation();
-    const next = history().filter(item => item.query !== queryToRemove);
-    setHistory(next);
+    const next = recentConversions().filter(item => item.query !== queryToRemove);
+    setRecentConversions(next);
     save(HISTORY_KEY, next);
   }
 
@@ -287,9 +287,9 @@ export default function App() {
           </Show>
         </section>
         <section aria-labelledby="recent-title">
-          <div class="section-title"><h2 id="recent-title">Recent</h2><Show when={history().length}><button class="clear" onClick={() => { setHistory([]); save(HISTORY_KEY, []); }}>Clear</button></Show></div>
-          <Show when={history().length} fallback={<p class="empty">Press Enter to add a conversion here.</p>}>
-            <ul><For each={history()}>{item => <li class="recent-item"><button onClick={() => chooseQuery(item.query)}><span>{item.query}</span><strong>{item.result}</strong></button><button class="remove-recent" type="button" onClick={event => removeRecent(event, item.query)} aria-label={`Remove ${item.query} from recent conversions`}><svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 4 8 8m0-8-8 8"/></svg></button></li>}</For></ul>
+          <div class="section-title"><h2 id="recent-title">Recent</h2><Show when={recentConversions().length}><button class="clear" onClick={() => { setRecentConversions([]); save(HISTORY_KEY, []); }}>Clear</button></Show></div>
+          <Show when={recentConversions().length} fallback={<p class="empty">Press Enter to add a conversion here.</p>}>
+            <ul><For each={recentConversions()}>{item => <li class="recent-item"><button onClick={() => chooseQuery(item.query)}><span>{item.query}</span><strong>{item.result}</strong></button><button class="remove-recent" type="button" onClick={event => removeRecent(event, item.query)} aria-label={`Remove ${item.query} from recent conversions`}><svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 4 8 8m0-8-8 8"/></svg></button></li>}</For></ul>
           </Show>
         </section>
       </div>
