@@ -23,6 +23,25 @@ for (const pattern of [
   if (!url?.startsWith(base)) {
     throw new Error(`Built HTML asset URL ${url || '(missing)'} does not use base ${base}`);
   }
+  const assetPath = url.slice(base.length).split(/[?#]/, 1)[0];
+  await access(join(root, assetPath));
+}
+
+const serviceWorker = await readFile(join(root, 'service-worker.js'), 'utf8');
+const precache = JSON.parse(serviceWorker.match(/const ASSETS = (\[[^;]+\]);/)?.[1] || 'null');
+if (!Array.isArray(precache) || precache.includes('./') || !precache.includes('./index.html')) {
+  throw new Error('Service worker must precache only the canonical index.html application shell');
+}
+if (!serviceWorker.includes("event.request.mode === 'navigate'") ||
+    !serviceWorker.includes("fetch(event.request).catch(() => caches.match('./index.html'))")) {
+  throw new Error('Service worker must use network-first navigation with an offline index.html fallback');
+}
+for (const url of html.matchAll(/(?:src|href)="([^"]+\.(?:js|css))(?:[?#][^"]*)?"/g)) {
+  const assetPath = url[1].slice(base.length);
+  await access(join(root, assetPath));
+  if (!precache.includes(`./${assetPath}`)) {
+    throw new Error(`Service worker does not precache HTML asset ${assetPath}`);
+  }
 }
 
 const scriptsDirectory = join(root, 'static', 'js');

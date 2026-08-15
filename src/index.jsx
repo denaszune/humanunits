@@ -9,12 +9,25 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     navigator.serviceWorker.register(`${import.meta.env.BASE_PATH}service-worker.js`, {
       scope: import.meta.env.BASE_PATH,
     }).then(registration => {
+      let reloadRequested = false;
+      const offerUpdate = () => {
+        if (registration.waiting && navigator.serviceWorker.controller) {
+          dispatchEvent(new Event('humanunits:update-ready'));
+        }
+      };
+      const applyUpdate = () => {
+        if (!registration.waiting || reloadRequested) return;
+        reloadRequested = true;
+        navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true });
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      };
+
+      addEventListener('humanunits:apply-update', applyUpdate);
+      offerUpdate();
       registration.addEventListener('updatefound', () => {
         const worker = registration.installing;
         worker?.addEventListener('statechange', () => {
-          if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-            dispatchEvent(new Event('humanunits:update-ready'));
-          }
+          if (worker.state === 'installed') offerUpdate();
         });
       });
     }).catch(() => { /* The converter remains fully usable without installation. */ });
