@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { evaluate, formatNumber, pairQuery, supportedUnits } from './conversion.js';
 
 const HISTORY_KEY = 'humanunits:history:v1';
@@ -61,6 +61,8 @@ export default function App() {
   const [search, setSearch] = createSignal('');
   const [expanded, setExpanded] = createSignal([]);
   const [selectedFrom, setSelectedFrom] = createSignal(null);
+  const [browseSelection, setBrowseSelection] = createSignal(null);
+  let conversionInput;
   const titleCase = text => text.replace(/(^|\s)\S/g, letter => letter.toUpperCase());
   const categorySections = [
     ['Everyday', ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'time', 'calendar duration', 'fuel economy', 'angle', 'typography']],
@@ -120,6 +122,17 @@ export default function App() {
     return value ? `${formatNumber(value.result)} ${value.to.symbol}` : '';
   });
 
+  createEffect(() => {
+    const selection = browseSelection();
+    if (page() !== 'converter' || !selection) return;
+    setBrowseSelection(null);
+    queueMicrotask(() => {
+      if (!conversionInput || conversionInput.value !== selection.query) return;
+      conversionInput.focus();
+      conversionInput.setSelectionRange(selection.start, selection.end);
+    });
+  });
+
   function remember(value = conversion()) {
     if (!value) return;
     const entry = { query: pairQuery(value.from, value.to, value.value), result: `${formatNumber(value.result)} ${value.to.symbol}` };
@@ -136,6 +149,12 @@ export default function App() {
   function chooseQuery(text) {
     setQuery(text);
     remember(evaluate(text));
+  }
+
+  function chooseBrowseQuery(text) {
+    const amount = text.match(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?/i);
+    setBrowseSelection(amount ? { query: text, start: amount.index, end: amount[0].length } : null);
+    chooseQuery(text);
   }
 
   function toggleCategory(category) {
@@ -155,7 +174,7 @@ export default function App() {
       return;
     }
     if (!isCompatible(unit, category)) return;
-    chooseQuery(pairQuery(from, unit));
+    chooseBrowseQuery(pairQuery(from, unit));
     setSelectedFrom(null);
     location.hash = '';
   }
@@ -205,7 +224,7 @@ export default function App() {
     return value && pins().some(item => item.from === value.from.symbol && item.to === value.to.symbol);
   });
 
-  return <>
+  return <div class="app-shell" classList={{ 'convert-shell': page() === 'converter' }}>
     <header class="site-header">
       <a class="brand" href={appRoot} onClick={event => handleInternalLink(event, appRoot)} aria-label="Human Units home"><span aria-hidden="true">HU</span> Human Units</a>
       <div class="header-actions">
@@ -218,7 +237,7 @@ export default function App() {
       </div>
     </header>
 
-    <main>
+    <main classList={{ 'convert-main': page() === 'converter' }}>
       <Show when={page() === 'converter'} fallback={<Show when={page() === 'pairs'} fallback={<Show when={page() === 'about'} fallback={<LicensePage />}><AboutPage onNavigate={handleInternalLink} /></Show>}>
         <section class="browse-page" aria-labelledby="browse-title">
           <div class="browse-heading">
@@ -240,7 +259,7 @@ export default function App() {
 
           <Show when={!selectedFrom()}><section class="popular-pairs" aria-labelledby="popular-pairs-title">
             <div class="browse-section-heading"><h2 id="popular-pairs-title">Popular conversions</h2></div>
-            <div class="compact-pairs"><For each={popularPairs}>{pair => <a href="#" onClick={() => chooseQuery(pair.query)} title={`${pair.from.name} to ${pair.to.name}`}><strong>{pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}</strong></a>}</For></div>
+            <div class="compact-pairs"><For each={popularPairs}>{pair => <a href="#" onClick={() => chooseBrowseQuery(pair.query)} title={`${pair.from.name} to ${pair.to.name}`}><strong>{pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}</strong></a>}</For></div>
           </section></Show>
 
           <Show when={!selectedFrom()}><section class="category-browser" aria-labelledby="categories-title">
@@ -253,7 +272,7 @@ export default function App() {
         <form onSubmit={submit} class="converter" role="search">
           <div class="converter-heading"><label for="conversion-input">What would you like to convert?</label></div>
           <div class="input-wrap">
-            <input id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); }}
+            <input ref={conversionInput} id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); }}
               inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="10 km in miles" aria-describedby="input-hint" />
           </div>
           <p id="input-hint" class="hint">Try {examples.map((text, index) => <><button type="button" class="text-button" onClick={() => chooseQuery(text)}>{text}</button>{index < examples.length - 1 ? ', ' : ''}</>)}</p>
@@ -279,7 +298,7 @@ export default function App() {
         </div>
       </section>
 
-      <div class="collections">
+      <div class="collections" role="region" aria-label="Pinned and recent conversions" tabindex="0">
         <section aria-labelledby="pinned-title">
           <div class="section-title"><h2 id="pinned-title">Pinned pairs <small>Saved on this device</small></h2><span>{pins().length}</span></div>
           <Show when={pins().length} fallback={<p class="empty">Pin the conversions you use most.</p>}>
@@ -298,5 +317,5 @@ export default function App() {
 
     <footer><span>Private · Works offline · No tracking</span><a href={licensePath} onClick={event => handleInternalLink(event, licensePath)}>MIT licensed</a></footer>
     <Show when={updateReady()}><aside class="update-notice" role="status"><span><strong>Update ready</strong> Refresh to use the latest version.</span><button type="button" onClick={() => location.reload()}>Refresh</button></aside></Show>
-  </>;
+  </div>;
 }
