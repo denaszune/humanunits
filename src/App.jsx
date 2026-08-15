@@ -121,11 +121,6 @@ export default function App() {
     const value = conversion();
     return value ? `${formatNumber(value.result)} ${value.to.symbol}` : '';
   });
-  const numberParts = value => {
-    const formatted = formatNumber(value);
-    const match = formatted.match(/^([+−-]?\d[\d,]*)(\.\d+)?([eE][+−-]?\d+)?$/);
-    return match ? { whole: match[1], fraction: match[2], exponent: match[3] } : { whole: formatted };
-  };
 
   createEffect(() => {
     const selection = browseSelection();
@@ -235,7 +230,7 @@ export default function App() {
   return <div class="app-shell" classList={{ 'convert-shell': page() === 'converter' }}>
     <header class="site-header">
       <a class="brand" href={appRoot} onClick={event => handleInternalLink(event, appRoot)} aria-label="Human Units home">
-        <svg class="brand-mark" aria-hidden="true" viewBox="0 0 42 32"><path class="mark-frame" d="M1 1h40v30H1z"/><path d="M8 7v18M8 16h10M18 7v18M18 7h6M24 7v11c0 5 2 7 5 7s5-2 5-7V7M5 11h3M5 21h3M34 11h3M34 21h3"/></svg>
+        <svg class="brand-mark" aria-hidden="true" viewBox="0 0 36 36"><rect width="36" height="36" rx="7"/><path d="M8.5 9v18M8.5 18h8M16.5 9v18M21 9v11.5c0 4.2 2.2 6.5 5.4 6.5s5.1-2.3 5.1-6.5V9M5.5 13h3M5.5 23h3"/></svg>
         <span>Human Units</span>
       </a>
       <div class="header-actions">
@@ -275,7 +270,7 @@ export default function App() {
 
           <Show when={!selectedFrom()}><section class="category-browser" aria-labelledby="categories-title">
             <div class="browse-section-heading"><h2 id="categories-title">All categories</h2><span>{catalog.length} categories</span></div>
-            <For each={categorySections}>{([sectionName, groups]) => <section class="category-section" aria-labelledby={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}><h3 id={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}>{sectionName}</h3><div class="category-grid"><For each={groups}>{group => <article class="category-item"><button class="category-card" type="button" aria-expanded={expanded().includes(group.category)} onClick={() => toggleCategory(group.category)}><span class="category-number">{String(catalog.findIndex(item => item.category === group.category) + 1).padStart(2, '0')}</span><strong>{titleCase(group.category)}</strong><small>{group.units.length} units</small><span class="category-toggle" aria-hidden="true">{expanded().includes(group.category) ? '−' : '+'}</span></button><Show when={expanded().includes(group.category)}><div class="unit-panel"><p class="sr-only">Choose a unit from {titleCase(group.category)}. The first unit becomes the source; then choose a compatible destination.</p><div class="unit-chips"><For each={group.units}>{unit => <button type="button" classList={{ selected: selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol }} disabled={selectedFrom() && !isCompatible(unit, group.category) && !(selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol)} onClick={() => chooseUnit(unit, group.category)} aria-pressed={selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol} title={unit.name}><strong>{unit.symbol}</strong><span>{unit.name}</span></button>}</For></div></div></Show></article>}</For></div></section>}</For>
+            <For each={categorySections}>{([sectionName, groups]) => <section class="category-section" aria-labelledby={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}><h3 id={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}>{sectionName}</h3><div class="category-grid"><For each={groups}>{group => <article class="category-item"><button class="category-card" type="button" aria-expanded={expanded().includes(group.category)} onClick={() => toggleCategory(group.category)}><span><strong>{titleCase(group.category)}</strong><small>{group.units.length} units</small></span><span aria-hidden="true">{expanded().includes(group.category) ? '−' : '+'}</span></button><Show when={expanded().includes(group.category)}><div class="unit-panel"><p class="sr-only">Choose a unit from {titleCase(group.category)}. The first unit becomes the source; then choose a compatible destination.</p><div class="unit-chips"><For each={group.units}>{unit => <button type="button" classList={{ selected: selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol }} disabled={selectedFrom() && !isCompatible(unit, group.category) && !(selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol)} onClick={() => chooseUnit(unit, group.category)} aria-pressed={selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol} title={unit.name}><strong>{unit.symbol}</strong><span>{unit.name}</span></button>}</For></div></div></Show></article>}</For></div></section>}</For>
           </section></Show>
         </section>
       </Show>}>
@@ -291,12 +286,12 @@ export default function App() {
 
         <div class="result-card" classList={{ invalid: query().trim() && !conversion() }}>
           <div class="result-heading">
-            <span>{conversion() ? conversion().from.category : 'Measurement'}</span>
-            <Show when={conversion()}><span class="source-measure"><small>FROM</small> {formatNumber(conversion().value)} <b>{conversion().from.symbol}</b></span></Show>
+            <span>{conversion() ? conversion().from.category : 'Result'}</span>
+            <Show when={conversion()}><span>{formatNumber(conversion().value)} {conversion().from.symbol}</span></Show>
           </div>
           <div class="result" aria-live="polite" aria-atomic="true">
             <Show when={conversion()} fallback={<span class="empty-result">Your result appears here.</span>}>
-              {value => <><strong class="measure-number"><span>{numberParts(value().result).whole}</span><Show when={numberParts(value().result).fraction}><span class="measure-fraction">{numberParts(value().result).fraction}</span></Show><Show when={numberParts(value().result).exponent}><sup>{numberParts(value().result).exponent}</sup></Show></strong><span class="measure-unit">{value().to.symbol}</span></>}
+              <strong>{formatNumber(conversion().result)}</strong> <span>{conversion().to.symbol}</span>
             </Show>
           </div>
           <Show when={conversion()}>
