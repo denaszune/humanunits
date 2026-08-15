@@ -130,6 +130,9 @@ export default function App() {
       if (!conversionInput || conversionInput.value !== selection.query) return;
       conversionInput.focus();
       conversionInput.setSelectionRange(selection.start, selection.end);
+      // Browsers normally scroll the selection end into view. Browse queries can
+      // be wider than the field, so put the selected amount back on screen.
+      conversionInput.scrollLeft = 0;
     });
   });
 

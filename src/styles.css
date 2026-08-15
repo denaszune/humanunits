@@ -131,10 +131,7 @@ footer a { color: inherit; }
 @media (max-width: 420px) { .converter-heading { align-items: flex-start; flex-direction: column; gap: .35rem; } }
 @media (max-width: 420px) { .actions button { font-size: .72rem; } .actions span { display: block; margin: 0 0 .15rem; } }
 @media (max-width: 460px) {
-  .convert-shell .site-header { padding-top: .75rem; padding-bottom: .75rem; gap: .5rem; }
   .convert-main { padding-top: .75rem; }
-  .convert-main .hint { margin-bottom: .75rem; }
-  .convert-main .result { min-height: 6rem; }
   .convert-main .collections { margin-top: 1rem; }
   .convert-shell footer { padding-top: .75rem; padding-bottom: max(.75rem, env(safe-area-inset-bottom)); }
 }
