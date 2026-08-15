@@ -16,6 +16,12 @@ describe('natural-language parser', () => {
     close(evaluate('−40 degrees Fahrenheit to celsius')?.result, -40);
   });
 
+  it('accepts clock-style and arbitrary-distance pace expressions', () => {
+    assert.equal(parseQuery('7:00 min/mi to min/km')?.from.category, 'pace');
+    assert.equal(parseQuery('1:20 /100 yd to /100 m')?.to.category, 'pace');
+    assert.equal(parseQuery('72 sec/400 m to min/mi')?.from.category, 'pace');
+  });
+
   for (const query of ['hello', '10 km', '1 kg to miles', 'NaN m to ft', '']) it(`rejects invalid query ${query}`, () => {
     assert.equal(parseQuery(query), null);
   });
@@ -36,6 +42,19 @@ describe('conversion engine', () => {
     close(evaluate('1 curie to becquerel')?.result, 3.7e10);
     close(evaluate('1 btu per pound to joule per kilogram')?.result, 2326);
     close(evaluate('1 nat to bit (information)')?.result, Math.LOG2E);
+  });
+
+  it('converts generalized paces and compatible pace/speed values', () => {
+    close(evaluate('7:00 min/mi to min/km')?.result, 4.349598345);
+    close(evaluate('4:00 min/km to min/mi')?.result, 6.437376);
+    close(evaluate('1:20 /100 yd to /100 m')?.result, 87.48906387);
+    close(evaluate('1:30 /100 m to /100 yd')?.result, 82.296);
+    close(evaluate('1:45 /500 m to /km')?.result, 3.5);
+    close(evaluate('72 sec/400 m to min/mi')?.result, 4.828032);
+    close(evaluate('2:00 /200 m to /100 m')?.result, 60);
+    close(evaluate('7:00 /mi to mph')?.result, 60 / 7);
+    close(evaluate('4:00 /km to km/h')?.result, 15);
+    close(evaluate('20 km/h to min/km')?.result, 3);
   });
 
   it('does not invent cross-category mass-to-molar concentration conversions', () => {
@@ -62,7 +81,7 @@ describe('supported pairs catalog', () => {
   it('exposes a searchable unit catalog without generating pairs', () => {
     const catalog = supportedUnits();
     assert.equal(catalog.length, 59);
-    assert.equal(catalog.reduce((total, group) => total + group.units.length, 0), 504);
+    assert.equal(catalog.reduce((total, group) => total + group.units.length, 0), 506);
     const micrometer = catalog.find(group => group.category === 'length').units.find(unit => unit.symbol === 'µm');
     assert.ok(micrometer.aliases.includes('um'));
     assert.equal(Object.hasOwn(catalog[0], 'pairs'), false);
@@ -72,6 +91,7 @@ describe('supported pairs catalog', () => {
     const catalog = supportedPairs();
     assert.deepEqual(catalog.slice(0, 6).map(group => group.category), ['length', 'temperature', 'mass', 'volume', 'area', 'speed']);
     assert.deepEqual(catalog[0].units.slice(0, 6).map(unit => unit.symbol), ['km', 'mi', 'm', 'ft', 'cm', 'in']);
+    assert.deepEqual(catalog.find(group => group.category === 'pace').units.slice(0, 6).map(unit => unit.symbol), ['min/mi', 'min/km', 'sec/400 m', 'min/100 m', 'min/100 yd', 'min/500 m']);
     assert.ok(catalog[0].pairs[0].popular);
     assert.deepEqual([catalog[0].pairs[0].from.symbol, catalog[0].pairs[0].to.symbol], ['km', 'mi']);
     for (const group of catalog) {

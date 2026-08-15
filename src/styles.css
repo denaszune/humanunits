@@ -4,7 +4,7 @@ html { scrollbar-gutter: stable; }
 body { margin: 0; min-width: 320px; min-height: 100vh; min-height: 100dvh; background: radial-gradient(circle at 80% 0, #d7e9dc 0, transparent 32rem), #f5f2e9; }
 #root, .app-shell { min-height: 100vh; min-height: 100dvh; }
 .app-shell { display: flex; flex-direction: column; }
-.convert-shell { height: 100dvh; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
+.convert-shell { height: 100vh; height: 100svh; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
 button, input { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { color: inherit; }
