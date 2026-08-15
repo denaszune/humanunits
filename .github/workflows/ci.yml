@@ -19,7 +19,7 @@ jobs:
           package-manager-cache: false
       # Installing the pinned CLI explicitly avoids Corepack's interactive
       # download prompt, which can wait indefinitely on a headless runner.
-      - run: npm install --global pnpm@10.28.1
+      - run: npm install --global pnpm@11.21.0
       - run: pnpm --version
       - run: pnpm install --no-frozen-lockfile --fix-lockfile
         timeout-minutes: 5
