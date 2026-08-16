@@ -18,10 +18,11 @@ export default defineConfig({
     pluginSolid(),
   ],
   html: {
+    template: './index.html',
     title: 'Human Units',
     meta: {
       description: 'Fast, private, offline unit conversion in natural language',
-      themeColor: '#123f35',
+      'theme-color': '#123f35',
     },
     tags: [
       { tag: 'link', attrs: { rel: 'manifest', href: 'manifest.webmanifest' }, head: true },
