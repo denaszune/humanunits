@@ -11,16 +11,16 @@
     "size": "node scripts/report-sizes.js"
   },
   "dependencies": {
-    "solid-js": "^1.9.9"
+    "solid-js": "^1.9.14"
   },
   "devDependencies": {
-    "@rsbuild/core": "^1.5.0",
-    "@rsbuild/plugin-babel": "^1.2.1",
-    "@rsbuild/plugin-solid": "^1.0.6",
+    "@rsbuild/core": "^2.1.13",
+    "@rsbuild/plugin-babel": "^2.0.1",
+    "@rsbuild/plugin-solid": "^1.2.2",
     "babel-preset-solid": "^1.9.12"
   },
   "engines": {
     "node": ">=24"
   },
-  "packageManager": "pnpm@11.21.0"
+  "packageManager": "pnpm@11.22.0"
 }
