@@ -493,6 +493,7 @@ export default function App() {
           </div>
           <div class="quick-reuse-grid"><For each={quickReuse()}>{item => <button type="button" onClick={() => reusePinnedQuery(item)} aria-label={`Reuse pinned conversion ${item.from} to ${item.to}`}>
             <strong>{item.from} <span aria-hidden="true">→</span> {item.to}</strong>
+            <small>Pinned pair</small>
           </button>}</For></div>
         </section>
       </Show>
