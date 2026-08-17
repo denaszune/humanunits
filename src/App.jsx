@@ -293,7 +293,7 @@ export default function App() {
   }
 
   function toggleCategory(category) {
-    setExpanded(current => current.includes(category) ? current.filter(item => item !== category) : [...current, category]);
+    setExpanded(current => current.includes(category) ? [] : [category]);
   }
 
   function isCompatible(unit, category) {
@@ -306,7 +306,7 @@ export default function App() {
     if (!from) {
       setSelectedFrom({ ...unit, category });
       setSearch('');
-      setExpanded(current => current.includes(category) ? current : [...current, category]);
+      setExpanded([category]);
       return;
     }
     if (!isCompatible(unit, category)) return;
@@ -424,7 +424,7 @@ export default function App() {
             <strong>{unitCount} units across {catalog.length} categories</strong>
           </div>
 
-          <label class="browse-search" for="unit-search"><span>Search units or categories</span><input id="unit-search" type="search" value={search()} onInput={event => setSearch(event.currentTarget.value)} placeholder="Search units or categories…" autocomplete="off" /></label>
+          <div class="browse-search"><label for="unit-search">Search units or categories</label><div class="browse-search-field"><input id="unit-search" type="search" value={search()} onInput={event => setSearch(event.currentTarget.value)} placeholder="Search units or categories…" autocomplete="off" /><Show when={search()}><button class="clear-search" type="button" onClick={() => setSearch('')} aria-label="Clear unit search"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="m5 5 10 10m0-10L5 15"/></svg></button></Show></div></div>
           <Show when={search().trim()}>
             <section class="search-results" aria-labelledby="search-results-title">
               <div class="browse-section-heading"><h2 id="search-results-title">Search results</h2><span aria-live="polite">{searchResults().length} units</span></div>
@@ -436,15 +436,16 @@ export default function App() {
 
           <Show when={selectedFrom()}>{from => <section class="destination-picker" aria-labelledby="destination-title"><div class="selection-status" role="status"><span><strong>From: {from().name} ({from().symbol})</strong><small id="destination-title">Choose a destination unit</small></span><button type="button" onClick={() => { setSelectedFrom(null); setSearch(''); }}>Clear</button></div><Show when={!search().trim()}><div class="result-grid"><For each={compatibleUnits()}>{unit => <button type="button" onClick={() => chooseUnit(unit, from().category)}><strong>{unit.symbol} <span>— {unit.name}</span></strong><small>{titleCase(from().category)}</small></button>}</For></div></Show></section>}</Show>
 
-          <Show when={!selectedFrom()}><section class="popular-pairs" aria-labelledby="popular-pairs-title">
+          <Show when={!search().trim()}><Show when={!selectedFrom()}><section class="popular-pairs" aria-labelledby="popular-pairs-title">
             <div class="browse-section-heading"><h2 id="popular-pairs-title">Popular conversions</h2></div>
             <div class="compact-pairs"><For each={popularPairs}>{pair => <a href={appRoot} onClick={event => { if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); chooseBrowseQuery(pair.query); }} title={`${pair.from.name} to ${pair.to.name}`}><strong>{pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}</strong></a>}</For></div>
           </section></Show>
 
           <Show when={!selectedFrom()}><section class="category-browser" aria-labelledby="categories-title">
             <div class="browse-section-heading"><h2 id="categories-title">All categories</h2><span>{catalog.length} categories</span></div>
-            <For each={categorySections}>{([sectionName, groups]) => <section class="category-section" aria-labelledby={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}><h3 id={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}>{sectionName}</h3><div class="category-grid"><For each={groups}>{group => <article class="category-item"><button class="category-card" type="button" aria-expanded={expanded().includes(group.category)} onClick={() => toggleCategory(group.category)}><span><strong>{titleCase(group.category)}</strong><small>{group.units.length} units</small></span><span aria-hidden="true">{expanded().includes(group.category) ? '−' : '+'}</span></button><Show when={expanded().includes(group.category)}><div class="unit-panel"><p class="sr-only">Choose a unit from {titleCase(group.category)}. The first unit becomes the source; then choose a compatible destination.</p><div class="unit-chips"><For each={group.units}>{unit => <button type="button" classList={{ selected: selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol }} disabled={selectedFrom() && !isCompatible(unit, group.category) && !(selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol)} onClick={() => chooseUnit(unit, group.category)} aria-pressed={selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol} title={unit.name}><strong>{unit.symbol}</strong><span>{unit.name}</span></button>}</For></div></div></Show></article>}</For></div></section>}</For>
+            <For each={categorySections}>{([sectionName, groups]) => <section class="category-section" aria-labelledby={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}><h3 id={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}>{sectionName}</h3><div class="category-grid"><For each={groups}>{group => <article class="category-item"><button class="category-card" type="button" aria-expanded={expanded().includes(group.category)} onClick={() => toggleCategory(group.category)}><span><strong>{titleCase(group.category)}</strong><small>{group.units.length} units</small></span><span aria-hidden="true">{expanded().includes(group.category) ? '−' : '+'}</span></button><Show when={expanded().includes(group.category)}><div class="unit-panel"><p class="sr-only">Choose a unit from {titleCase(group.category)}. The first unit becomes the source; then choose a compatible destination.</p><div class="unit-chips"><For each={group.units}>{unit => <button type="button" classList={{ selected: selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol, compatible: selectedFrom() && isCompatible(unit, group.category) }} disabled={selectedFrom() && !isCompatible(unit, group.category) && !(selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol)} onClick={() => chooseUnit(unit, group.category)} aria-pressed={selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol} title={unit.name}><strong>{unit.symbol}</strong><span>{unit.name}</span></button>}</For></div></div></Show></article>}</For></div></section>}</For>
           </section></Show>
+          </Show>
         </section>
       </Show>}>
       <section class="hero" aria-label="Unit converter">
