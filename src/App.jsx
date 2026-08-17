@@ -406,10 +406,12 @@ export default function App() {
         <span>Human Units</span>
       </a>
       <div class="header-actions">
-        <nav aria-label="Primary navigation">
+        <nav class="desktop-primary-nav" aria-label="Primary">
           <a href={appRoot} onClick={event => handleInternalLink(event, appRoot)} aria-current={page() === 'converter' ? 'page' : undefined}>Convert</a>
           <a href={`${appRoot}#pairs`} onClick={event => handleInternalLink(event, `${appRoot}#pairs`)} aria-current={page() === 'pairs' ? 'page' : undefined}>Browse</a>
           <a href={`${appRoot}#library`} onClick={event => handleInternalLink(event, `${appRoot}#library`)} aria-current={page() === 'library' ? 'page' : undefined}>Library</a>
+        </nav>
+        <nav class="utility-nav" aria-label="Utility">
           <a href={`${appRoot}#about`} onClick={event => handleInternalLink(event, `${appRoot}#about`)} aria-current={page() === 'about' ? 'page' : undefined}>About</a>
         </nav>
         <Show when={installPrompt()}><button class="install-button" type="button" onClick={install}>Install</button></Show>
@@ -498,7 +500,20 @@ export default function App() {
       </Show>
     </main>
 
-    <footer><span>Private · Works offline · No tracking</span><a href={licensePath} onClick={event => handleInternalLink(event, licensePath)}>MIT licensed</a></footer>
+    <nav class="mobile-primary-nav" aria-label="Primary">
+      <a href={appRoot} onClick={event => handleInternalLink(event, appRoot)} aria-current={page() === 'converter' ? 'page' : undefined}>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h14m0 0-3-3m3 3-3 3M20 16H6m0 0 3 3m-3-3 3-3"/></svg>
+        <span>Convert</span>
+      </a>
+      <a href={`${appRoot}#pairs`} onClick={event => handleInternalLink(event, `${appRoot}#pairs`)} aria-current={page() === 'pairs' ? 'page' : undefined}>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 5h5v5H5zM14 5h5v5h-5zM5 14h5v5H5zM14 14h5v5h-5z"/></svg>
+        <span>Browse</span>
+      </a>
+      <a href={`${appRoot}#library`} onClick={event => handleInternalLink(event, `${appRoot}#library`)} aria-current={page() === 'library' ? 'page' : undefined}>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 4.5h12v15l-6-3.5-6 3.5z"/></svg>
+        <span>Library</span>
+      </a>
+    </nav>
     <Show when={updateReady()}><aside class="update-notice" role="status"><span><strong>Update ready</strong> Refresh to use the latest version.</span><button type="button" onClick={() => dispatchEvent(new Event('humanunits:apply-update'))}>Refresh</button></aside></Show>
   </div>;
 }
