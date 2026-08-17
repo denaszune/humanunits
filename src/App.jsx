@@ -33,6 +33,57 @@ function LicensePage() {
   </article>;
 }
 
+function LibraryPage(props) {
+  return <section class="library-page" aria-labelledby="library-title">
+    <header class="library-heading">
+      <p class="eyebrow">Your conversions</p>
+      <h1 id="library-title">Library</h1>
+      <p>Pinned pairs and recent conversions are stored on this device.</p>
+    </header>
+
+    <div class="library-grid">
+      <section class="library-panel" aria-labelledby="library-pins-title">
+        <div class="library-section-heading">
+          <div><h2 id="library-pins-title">Pinned Pairs</h2><p>Directed conversion pairs for quick reuse.</p></div>
+          <span class="library-count" aria-label={`${props.pins.length} of 8 pinned pairs`}>{props.pins.length} / 8</span>
+        </div>
+        <Show when={props.pins.length} fallback={<p class="library-empty">Pin a conversion pair to keep it close at hand.</p>}>
+          <ul class="library-list"><For each={props.pins}>{item => <li class="library-item">
+            <button class="library-reuse" type="button" onClick={() => props.onReuse(item.query)} aria-label={`Convert ${item.from} to ${item.to}`}>
+              <span class="library-pair">{item.from} <span aria-hidden="true">→</span> {item.to}</span>
+              <small>Convert</small>
+            </button>
+            <button class="library-remove" type="button" onClick={() => props.onUnpin(item.from, item.to)} aria-label={`Unpin ${item.from} to ${item.to}`} title="Unpin pair">
+              <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 4 8 8m0-8-8 8"/></svg>
+            </button>
+          </li>}</For></ul>
+        </Show>
+      </section>
+
+      <section class="library-panel" aria-labelledby="library-recent-title">
+        <div class="library-section-heading">
+          <div><h2 id="library-recent-title">Recent</h2><p>Conversions added through existing actions.</p></div>
+          <div class="library-section-actions">
+            <span class="library-count" aria-label={`${props.recents.length} of 8 recent conversions`}>{props.recents.length} / 8</span>
+            <Show when={props.recents.length}><button class="library-clear" type="button" onClick={props.onClear}>Clear</button></Show>
+          </div>
+        </div>
+        <Show when={props.recents.length} fallback={<p class="library-empty">Press Enter on a conversion to add it here.</p>}>
+          <ul class="library-list"><For each={props.recents}>{item => <li class="library-item">
+            <button class="library-reuse library-recent" type="button" onClick={() => props.onReuse(item.query)} aria-label={`Reuse ${item.query}, result ${item.result}`}>
+              <span>{item.query}</span>
+              <strong>{item.result}</strong>
+            </button>
+            <button class="library-remove" type="button" onClick={() => props.onRemoveRecent(item.query)} aria-label={`Remove ${item.query} from recent conversions`} title="Remove recent conversion">
+              <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 4 8 8m0-8-8 8"/></svg>
+            </button>
+          </li>}</For></ul>
+        </Show>
+      </section>
+    </div>
+  </section>;
+}
+
 function load(key) {
   try {
     const value = JSON.parse(localStorage.getItem(key));
@@ -100,7 +151,7 @@ export default function App() {
     if (!from) return [];
     return catalog.flatMap(group => group.units.filter(unit => isCompatible(unit, group.category)).map(unit => ({ ...unit, category: group.category })));
   });
-  const pageFromLocation = () => location.pathname.replace(/\/$/, '').endsWith('/license') ? 'license' : location.hash === '#pairs' ? 'pairs' : location.hash === '#about' ? 'about' : 'converter';
+  const pageFromLocation = () => location.pathname.replace(/\/$/, '').endsWith('/license') ? 'license' : location.hash === '#pairs' ? 'pairs' : location.hash === '#library' ? 'library' : location.hash === '#about' ? 'about' : 'converter';
   const [page, setPage] = createSignal(pageFromLocation());
   const handleLocationChange = () => setPage(pageFromLocation());
   const handleInternalLink = (event, url) => {
@@ -257,6 +308,31 @@ export default function App() {
     save(HISTORY_KEY, next);
   }
 
+  function reuseLibraryQuery(text) {
+    chooseQuery(text);
+    window.history.pushState(null, '', appRoot);
+    handleLocationChange();
+    scrollTo({ top: 0, behavior: 'auto' });
+    queueMicrotask(() => conversionInput?.focus());
+  }
+
+  function removeLibraryRecent(queryToRemove) {
+    const next = recentConversions().filter(item => item.query !== queryToRemove);
+    setRecentConversions(next);
+    save(HISTORY_KEY, next);
+  }
+
+  function removeLibraryPin(from, to) {
+    const next = pins().filter(item => item.from !== from || item.to !== to);
+    setPins(next);
+    save(PINS_KEY, next);
+  }
+
+  function clearLibraryRecent() {
+    setRecentConversions([]);
+    save(HISTORY_KEY, []);
+  }
+
   async function install() {
     const prompt = installPrompt();
     if (!prompt) return;
@@ -311,6 +387,7 @@ export default function App() {
         <nav aria-label="Primary navigation">
           <a href={appRoot} onClick={event => handleInternalLink(event, appRoot)} aria-current={page() === 'converter' ? 'page' : undefined}>Convert</a>
           <a href={`${appRoot}#pairs`} onClick={event => handleInternalLink(event, `${appRoot}#pairs`)} aria-current={page() === 'pairs' ? 'page' : undefined}>Browse</a>
+          <a href={`${appRoot}#library`} onClick={event => handleInternalLink(event, `${appRoot}#library`)} aria-current={page() === 'library' ? 'page' : undefined}>Library</a>
           <a href={`${appRoot}#about`} onClick={event => handleInternalLink(event, `${appRoot}#about`)} aria-current={page() === 'about' ? 'page' : undefined}>About</a>
         </nav>
         <Show when={installPrompt()}><button class="install-button" type="button" onClick={install}>Install</button></Show>
@@ -318,7 +395,7 @@ export default function App() {
     </header>
 
     <main classList={{ 'convert-main': page() === 'converter' }}>
-      <Show when={page() === 'converter'} fallback={<Show when={page() === 'pairs'} fallback={<Show when={page() === 'about'} fallback={<LicensePage />}><AboutPage onNavigate={handleInternalLink} /></Show>}>
+      <Show when={page() === 'converter'} fallback={<Show when={page() === 'pairs'} fallback={<Show when={page() === 'library'} fallback={<Show when={page() === 'about'} fallback={<LicensePage />}><AboutPage onNavigate={handleInternalLink} /></Show>}><LibraryPage pins={pins()} recents={recentConversions()} onReuse={reuseLibraryQuery} onUnpin={removeLibraryPin} onRemoveRecent={removeLibraryRecent} onClear={clearLibraryRecent} /></Show>}>
         <section class="browse-page" aria-labelledby="browse-title">
           <div class="browse-heading">
             <div><h1 id="browse-title">Browse supported units</h1><p>Explore the units and measurement categories supported by Human Units.</p></div>
