@@ -200,9 +200,9 @@ export function convert(value, from, to) {
   return to.fromBase ? to.fromBase(compatibleBase) : compatibleBase / to.factor;
 }
 export function evaluate(input) { const parsed=parseQuery(input); return parsed ? {...parsed,result:convert(parsed.value,parsed.from,parsed.to)} : null; }
-export function formatNumber(value) { if(!Number.isFinite(value))return String(value);if(Object.is(value,-0))value=0;const magnitude=Math.abs(value);if(magnitude!==0&&(magnitude>=1e12||magnitude<1e-7)){const [c,e]=value.toExponential(8).split('e');return `${c.replace(/\.?0+$/,'')}e${e}`;}return new Intl.NumberFormat('en-US',{maximumSignificantDigits:10}).format(value); }
-export function formatValue(value, unit, clockStyle = false) {
-  if (!clockStyle || unit?.category !== 'pace' || !Number.isFinite(value)) return formatNumber(value);
+export function formatNumber(value, maximumSignificantDigits = 10) { if(!Number.isFinite(value))return String(value);if(Object.is(value,-0))value=0;const magnitude=Math.abs(value);if(magnitude!==0&&(magnitude>=1e12||magnitude<1e-7)){const [c,e]=value.toExponential(Math.max(0,maximumSignificantDigits-1)).split('e');return `${c.replace(/\.?0+$/,'')}e${e}`;}return new Intl.NumberFormat('en-US',{maximumSignificantDigits}).format(value); }
+export function formatValue(value, unit, clockStyle = false, maximumSignificantDigits = 10) {
+  if (!clockStyle || unit?.category !== 'pace' || !Number.isFinite(value)) return formatNumber(value, maximumSignificantDigits);
   const unitSeconds = /^min\//.test(unit.symbol) ? 60 : /^h\//.test(unit.symbol) ? 3600 : 1;
   const roundedSeconds = Math.round(Math.abs(value) * unitSeconds);
   const hours = Math.floor(roundedSeconds / 3600);
