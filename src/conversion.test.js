@@ -36,6 +36,7 @@ describe('conversion engine', () => {
     ['1 gal (Imp) to gal (US)', 1.2009499255], ['1 oz t to oz', 1.0971428571],
     ['5 L/100km to mpg (US)', 47.0429166], ['1 dBm to dBW', -29],
     ['1 degree Fahrenheit to kelvin', 255.9277777778], ['1 Fahrenheit difference to kelvin difference', 5 / 9],
+    ['12 calendar months to calendar years', 1], ['2 decades to calendar years', 20],
   ]) it(`converts ${query} accurately`, () => close(evaluate(query)?.result, expected));
 
   it('covers scientific, electrical, radiation, thermal, and information units', () => {
@@ -61,7 +62,6 @@ describe('conversion engine', () => {
 
   it('does not invent cross-category mass-to-molar concentration conversions', () => {
     assert.equal(evaluate('1 mg/dL to mmol/L'), null);
-    assert.equal(evaluate('1 calendar month to calendar year'), null);
     assert.equal(evaluate('1 dBV to dB SPL'), null);
   });
 
@@ -104,6 +104,7 @@ describe('supported pairs catalog', () => {
     assert.deepEqual(catalog.find(group => group.category === 'pace').units.slice(0, 6).map(unit => unit.symbol), ['min/mi', 'min/km', 'sec/400 m', 'min/100 m', 'min/100 yd', 'min/500 m']);
     assert.ok(catalog[0].pairs[0].popular);
     assert.deepEqual([catalog[0].pairs[0].from.symbol, catalog[0].pairs[0].to.symbol], ['km', 'mi']);
+    assert.equal(catalog[0].pairs[0].query, '1 km in mi');
     for (const group of catalog) {
       const firstRegularPair = group.pairs.findIndex(pair => !pair.popular);
       assert.ok(firstRegularPair < 0 || group.pairs.slice(firstRegularPair).every(pair => !pair.popular));
@@ -118,6 +119,6 @@ describe('supported pairs catalog', () => {
       assert.equal(group.pairs.length, sizes.reduce((total, size) => total + size * (size - 1), 0));
       assert.ok(group.pairs.every(pair => evaluate(pair.query)));
     }
-    assert.equal(catalog.find(group => group.category === 'calendar duration').pairs.length, 0);
+    assert.equal(catalog.find(group => group.category === 'calendar duration').pairs.length, 30);
   });
 });
