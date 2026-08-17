@@ -1,10 +1,41 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { convert, evaluate, formatNumber, formatValue, parseQuery, supportedPairs, supportedUnits } from './conversion.js';
+import { prependPin, quickReusePins, reusePinnedPair } from './pins.js';
 
 function close(actual, expected, precision = 8) {
   assert.ok(Math.abs(actual - expected) < 10 ** -precision * Math.max(1, Math.abs(expected)), `${actual} is not close to ${expected}`);
 }
+
+describe('pinned-pair ordering', () => {
+  const pins = [
+    { from: 'km', to: 'mi', query: '1 km in mi' },
+    { from: 'kg', to: 'lb', query: '1 kg in lb' },
+    { from: 'C', to: 'F', query: '1 C in F' },
+    { from: 'L', to: 'gal (US)', query: '1 L in gal (US)' },
+  ];
+
+  it('leaves array and persisted order unchanged when a pin is reused', () => {
+    const persisted = JSON.stringify(pins);
+    let selectedQuery;
+    const result = reusePinnedPair(pins, pins[2], query => { selectedQuery = query; });
+
+    assert.equal(result, pins);
+    assert.equal(JSON.stringify(pins), persisted);
+    assert.equal(selectedQuery, pins[2].query);
+  });
+
+  it('prepends a newly added pin', () => {
+    const added = { from: 'm', to: 'ft', query: '1 m in ft' };
+    assert.deepEqual(prependPin(pins, added), [added, ...pins]);
+  });
+
+  it('keeps Quick Reuse stable after selecting a pin', () => {
+    const before = quickReusePins(pins);
+    reusePinnedPair(pins, pins[1], () => {});
+    assert.deepEqual(quickReusePins(pins), before);
+  });
+});
 
 describe('natural-language parser', () => {
   for (const [query, category] of [
@@ -21,6 +52,12 @@ describe('natural-language parser', () => {
     assert.equal(parseQuery('4:45 minute per mile in minute per kilometer')?.from.category, 'pace');
     assert.equal(parseQuery('1:20 /100 yd to /100 m')?.to.category, 'pace');
     assert.equal(parseQuery('72 sec/400 m to min/mi')?.from.category, 'pace');
+  });
+
+  it('accepts scientific notation, signed values, unicode symbols, and the arrow connector', () => {
+    close(evaluate('-2.5e3 µm → mm')?.result, -2.5);
+    close(evaluate('1 m² to cm2')?.result, 10000);
+    close(evaluate('1 m³ as liters')?.result, 1000);
   });
 
   for (const query of ['hello', '10 km', '1 kg to miles', 'NaN m to ft', '']) it(`rejects invalid query ${query}`, () => {
@@ -76,6 +113,10 @@ describe('conversion engine', () => {
     assert.equal(formatNumber(-0), '0');
     assert.equal(formatNumber(1.25e12), '1.25e+12');
     assert.equal(formatNumber(1.25e-8), '1.25e-8');
+    assert.equal(formatNumber(8.88034964647626e-6, 6), '8.88035e-6');
+    assert.equal(formatNumber(8.88034964647626e-6, 10), '8.880349646e-6');
+    assert.equal(formatNumber(8.88034964647626e-6, 15), '8.88034964647626e-6');
+    assert.equal(formatNumber(0.0001, 15), '0.0001');
     assert.equal(formatNumber(6.2137119224, 6), '6.21371');
     assert.equal(formatNumber(6.2137119224, 15), '6.2137119224');
   });
@@ -90,10 +131,22 @@ describe('conversion engine', () => {
 
   it('formats pace results like clocks when requested', () => {
     const conversion = evaluate('4:45 minute per mile in minute per kilometer');
-    assert.equal(formatValue(conversion.result, conversion.to, conversion.clockStyle), '2:57');
+    assert.equal(conversion.value, 4.75);
+    assert.equal(formatValue(conversion.value, conversion.from, conversion.clockStyle, 15), '4:45');
+    assert.equal(formatValue(conversion.result, conversion.to, conversion.clockStyle, 6), '2:57');
+    assert.equal(formatValue(conversion.result, conversion.to, conversion.clockStyle, 10), '2:57.09');
+    assert.equal(formatValue(conversion.result, conversion.to, conversion.clockStyle, 15), '2:57.09079');
     assert.equal(formatValue(conversion.result, conversion.to), '2.951513163');
     const swimPace = evaluate('1:20 /100 yd to /100 m');
-    assert.equal(formatValue(swimPace.result, swimPace.to, swimPace.clockStyle), '1:27');
+    assert.equal(formatValue(swimPace.result, swimPace.to, swimPace.clockStyle, 6), '1:27');
+    const longPace = evaluate('90:00 min/mi in min/km');
+    assert.equal(formatValue(longPace.result, longPace.to, longPace.clockStyle, 6), '55:55');
+    assert.equal(formatValue(longPace.result, longPace.to, longPace.clockStyle, 10), '55:55.4');
+  });
+
+  it('uses readable scientific notation for very small conversion results', () => {
+    const conversion = evaluate('23 m² in mi²');
+    assert.equal(formatValue(conversion.result, conversion.to, conversion.clockStyle, 15), '8.88034964647625e-6');
   });
 });
 
@@ -130,5 +183,17 @@ describe('supported pairs catalog', () => {
       assert.ok(group.pairs.every(pair => evaluate(pair.query)));
     }
     assert.equal(catalog.find(group => group.category === 'calendar duration').pairs.length, 30);
+  });
+
+  it('keeps special compatibility groups from becoming ordinary category-wide pairs', () => {
+    const catalog = supportedPairs();
+    const sound = catalog.find(group => group.category === 'sound level');
+    assert.ok(sound.pairs.some(pair => pair.from.symbol === 'dBm' && pair.to.symbol === 'dBW'));
+    assert.ok(!sound.pairs.some(pair => pair.from.symbol === 'dBV' && pair.to.symbol === 'dB SPL'));
+
+    const pace = catalog.find(group => group.category === 'pace');
+    assert.ok(pace.pairs.some(pair => pair.from.symbol === 'min/mi' && pair.to.symbol === 'min/km'));
+    assert.ok(!pace.pairs.some(pair => pair.to.category === 'speed'));
+    close(evaluate('7:00 /mi → mph')?.result, 60 / 7);
   });
 });

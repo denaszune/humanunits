@@ -1,5 +1,6 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { evaluate, formatValue, supportedUnits } from './conversion.js';
+import { prependPin, quickReusePins, reusePinnedPair } from './pins.js';
 
 const HISTORY_KEY = 'humanunits:history:v1';
 const PINS_KEY = 'humanunits:pins:v1';
@@ -31,6 +32,57 @@ function LicensePage() {
       <p>THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</p>
     </div>
   </article>;
+}
+
+function LibraryPage(props) {
+  return <section class="library-page" aria-labelledby="library-title">
+    <header class="library-heading">
+      <p class="eyebrow">Your conversions</p>
+      <h1 id="library-title">Library</h1>
+      <p>Pinned pairs and recent conversions are stored on this device.</p>
+    </header>
+
+    <div class="library-grid">
+      <section class="library-panel" aria-labelledby="library-pins-title">
+        <div class="library-section-heading">
+          <div><h2 id="library-pins-title">Pinned Pairs</h2></div>
+          <span class="library-count" aria-label={`${props.pins.length} of 8 pinned pairs`}>{props.pins.length} / 8</span>
+        </div>
+        <Show when={props.pins.length} fallback={<p class="library-empty">Pin a conversion pair to keep it close at hand.</p>}>
+          <ul class="library-list"><For each={props.pins}>{item => <li class="library-item">
+            <button class="library-reuse" type="button" onClick={() => props.onReusePin(item)} aria-label={`Convert ${item.from} to ${item.to}`}>
+              <span class="library-pair">{item.from} <span aria-hidden="true">→</span> {item.to}</span>
+              <small>Convert</small>
+            </button>
+            <button class="library-remove" type="button" onClick={() => props.onUnpin(item.from, item.to)} aria-label={`Unpin ${item.from} to ${item.to}`} title="Unpin pair">
+              <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 4 8 8m0-8-8 8"/></svg>
+            </button>
+          </li>}</For></ul>
+        </Show>
+      </section>
+
+      <section class="library-panel" aria-labelledby="library-recent-title">
+        <div class="library-section-heading">
+          <div><h2 id="library-recent-title">Recent</h2></div>
+          <div class="library-section-actions">
+            <span class="library-count" aria-label={`${props.recents.length} of 8 recent conversions`}>{props.recents.length} / 8</span>
+            <Show when={props.recents.length}><button class="library-clear" type="button" onClick={props.onClear}>Clear</button></Show>
+          </div>
+        </div>
+        <Show when={props.recents.length} fallback={<p class="library-empty">Press Enter on a conversion to add it here.</p>}>
+          <ul class="library-list"><For each={props.recents}>{item => <li class="library-item">
+            <button class="library-reuse library-recent" type="button" onClick={() => props.onReuse(item.query)} aria-label={`Reuse ${item.query}, result ${item.result}`}>
+              <span>{item.query}</span>
+              <strong>{item.result}</strong>
+            </button>
+            <button class="library-remove" type="button" onClick={() => props.onRemoveRecent(item.query)} aria-label={`Remove ${item.query} from recent conversions`} title="Remove recent conversion">
+              <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 4 8 8m0-8-8 8"/></svg>
+            </button>
+          </li>}</For></ul>
+        </Show>
+      </section>
+    </div>
+  </section>;
 }
 
 function load(key) {
@@ -81,6 +133,9 @@ export default function App() {
   let conversionInput;
   let resultDisplay;
   let resultFitFrame;
+  let resultObserver;
+  let observedResult;
+  let queryDirty = false;
   const titleCase = text => text.replace(/(^|\s)\S/g, letter => letter.toUpperCase());
   const categorySections = [
     ['Everyday', ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'time', 'calendar duration', 'fuel economy', 'angle', 'typography']],
@@ -100,7 +155,7 @@ export default function App() {
     if (!from) return [];
     return catalog.flatMap(group => group.units.filter(unit => isCompatible(unit, group.category)).map(unit => ({ ...unit, category: group.category })));
   });
-  const pageFromLocation = () => location.pathname.replace(/\/$/, '').endsWith('/license') ? 'license' : location.hash === '#pairs' ? 'pairs' : location.hash === '#about' ? 'about' : 'converter';
+  const pageFromLocation = () => location.pathname.replace(/\/$/, '').endsWith('/license') ? 'license' : location.hash === '#pairs' ? 'pairs' : location.hash === '#library' ? 'library' : location.hash === '#about' ? 'about' : 'converter';
   const [page, setPage] = createSignal(pageFromLocation());
   const handleLocationChange = () => setPage(pageFromLocation());
   const handleInternalLink = (event, url) => {
@@ -154,7 +209,9 @@ export default function App() {
       const gap = parseFloat(styles.columnGap || styles.gap) || 0;
       const numberSize = parseFloat(getComputedStyle(number).fontSize);
       const unitSize = parseFloat(getComputedStyle(unit).fontSize);
-      const required = number.getBoundingClientRect().width + unit.getBoundingClientRect().width + gap;
+      const numberWidth = Math.max(number.getBoundingClientRect().width, number.scrollWidth);
+      const unitWidth = Math.max(unit.getBoundingClientRect().width, unit.scrollWidth);
+      const required = numberWidth + unitWidth + gap;
       if (required <= available || !Number.isFinite(required)) return;
 
       const scale = available / required * 0.98;
@@ -163,23 +220,28 @@ export default function App() {
     });
   }
 
+  function observeResultSize() {
+    if (!resultObserver || !resultDisplay || observedResult === resultDisplay) return;
+    if (observedResult) resultObserver.unobserve(observedResult);
+    observedResult = resultDisplay;
+    resultObserver.observe(observedResult);
+  }
+
   createEffect(() => {
     resultText();
-    queueMicrotask(fitResult);
+    if (page() !== 'converter') return;
+    queueMicrotask(() => {
+      observeResultSize();
+      fitResult();
+    });
   });
 
   onMount(() => {
     if (!resultDisplay || !('ResizeObserver' in window)) return;
-    let previousWidth = resultDisplay.clientWidth;
-    const observer = new ResizeObserver(() => {
-      const width = resultDisplay.clientWidth;
-      if (width === previousWidth) return;
-      previousWidth = width;
-      fitResult();
-    });
-    observer.observe(resultDisplay);
+    resultObserver = new ResizeObserver(fitResult);
+    observeResultSize();
     onCleanup(() => {
-      observer.disconnect();
+      resultObserver.disconnect();
       cancelAnimationFrame(resultFitFrame);
     });
   });
@@ -199,11 +261,13 @@ export default function App() {
   });
 
   function remember(value = conversion()) {
-    if (!value) return;
+    if (!value) return false;
     const entry = { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle, precision())), result: `${formatValue(value.result, value.to, value.clockStyle, precision())} ${value.to.symbol}` };
     const next = [entry, ...recentConversions().filter(item => item.query !== entry.query)].slice(0, 8);
     setRecentConversions(next);
     save(HISTORY_KEY, next);
+    queryDirty = false;
+    return true;
   }
 
   function submit(event) {
@@ -211,19 +275,35 @@ export default function App() {
     remember();
   }
 
+  function clearQuery() {
+    setQuery('');
+    setCopied(false);
+    queryDirty = false;
+  }
+
   function chooseQuery(text) {
     setQuery(text);
+    queryDirty = false;
+  }
+
+  function chooseExampleQuery(text) {
+    chooseQuery(text);
     remember(evaluate(text));
   }
 
   function chooseBrowseQuery(text) {
-    const amount = text.match(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?/i);
+    const amount = text.match(/^[+-]?(?:(?:\d+(?::\d+)+(?:\.\d+)?)|(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)/i);
     setBrowseSelection(amount ? { query: text, start: amount.index, end: amount[0].length } : null);
     chooseQuery(text);
+    if (page() !== 'converter') {
+      window.history.pushState(null, '', appRoot);
+      handleLocationChange();
+    }
+    scrollTo({ top: 0, behavior: 'auto' });
   }
 
   function toggleCategory(category) {
-    setExpanded(current => current.includes(category) ? current.filter(item => item !== category) : [...current, category]);
+    setExpanded(current => current.includes(category) ? [] : [category]);
   }
 
   function isCompatible(unit, category) {
@@ -236,13 +316,12 @@ export default function App() {
     if (!from) {
       setSelectedFrom({ ...unit, category });
       setSearch('');
-      setExpanded(current => current.includes(category) ? current : [...current, category]);
+      setExpanded([category]);
       return;
     }
     if (!isCompatible(unit, category)) return;
     chooseBrowseQuery(symbolPairQuery(from, unit));
     setSelectedFrom(null);
-    location.hash = '';
   }
 
   function removeRecent(event, queryToRemove) {
@@ -250,6 +329,27 @@ export default function App() {
     const next = recentConversions().filter(item => item.query !== queryToRemove);
     setRecentConversions(next);
     save(HISTORY_KEY, next);
+  }
+
+  function reusePinnedQuery(item) {
+    reusePinnedPair(pins(), item, chooseBrowseQuery);
+  }
+
+  function removeLibraryRecent(queryToRemove) {
+    const next = recentConversions().filter(item => item.query !== queryToRemove);
+    setRecentConversions(next);
+    save(HISTORY_KEY, next);
+  }
+
+  function removeLibraryPin(from, to) {
+    const next = pins().filter(item => item.from !== from || item.to !== to);
+    setPins(next);
+    save(PINS_KEY, next);
+  }
+
+  function clearLibraryRecent() {
+    setRecentConversions([]);
+    save(HISTORY_KEY, []);
   }
 
   async function install() {
@@ -262,8 +362,9 @@ export default function App() {
   function swap() {
     const value = conversion();
     if (!value) return;
-    const amount = value.clockStyle ? formatValue(value.result, value.to, true) : String(value.result);
+    const amount = value.clockStyle ? formatValue(value.result, value.to, true, 15) : String(value.result);
     setQuery(symbolPairQuery(value.to, value.from, amount));
+    queryDirty = false;
     requestAnimationFrame(() => remember());
   }
 
@@ -274,6 +375,7 @@ export default function App() {
 
   async function copy() {
     if (!resultText()) return;
+    remember();
     try {
       await navigator.clipboard.writeText(resultText());
       setCopied(true);
@@ -286,7 +388,7 @@ export default function App() {
     if (!value) return;
     const pair = { from: value.from.symbol, to: value.to.symbol, query: symbolPairQuery(value.from, value.to) };
     const exists = pins().some(item => item.from === pair.from && item.to === pair.to);
-    const next = exists ? pins().filter(item => item.from !== pair.from || item.to !== pair.to) : [pair, ...pins()].slice(0, 8);
+    const next = exists ? pins().filter(item => item.from !== pair.from || item.to !== pair.to) : prependPin(pins(), pair);
     setPins(next);
     save(PINS_KEY, next);
   }
@@ -295,6 +397,7 @@ export default function App() {
     const value = conversion();
     return value && pins().some(item => item.from === value.from.symbol && item.to === value.to.symbol);
   });
+  const quickReuse = createMemo(() => quickReusePins(pins()));
 
   return <div class="app-shell" classList={{ 'convert-shell': page() === 'converter' }}>
     <header class="site-header">
@@ -303,9 +406,12 @@ export default function App() {
         <span>Human Units</span>
       </a>
       <div class="header-actions">
-        <nav aria-label="Primary navigation">
+        <nav class="desktop-primary-nav" aria-label="Primary">
           <a href={appRoot} onClick={event => handleInternalLink(event, appRoot)} aria-current={page() === 'converter' ? 'page' : undefined}>Convert</a>
           <a href={`${appRoot}#pairs`} onClick={event => handleInternalLink(event, `${appRoot}#pairs`)} aria-current={page() === 'pairs' ? 'page' : undefined}>Browse</a>
+          <a href={`${appRoot}#library`} onClick={event => handleInternalLink(event, `${appRoot}#library`)} aria-current={page() === 'library' ? 'page' : undefined}>Library</a>
+        </nav>
+        <nav class="utility-nav" aria-label="Utility">
           <a href={`${appRoot}#about`} onClick={event => handleInternalLink(event, `${appRoot}#about`)} aria-current={page() === 'about' ? 'page' : undefined}>About</a>
         </nav>
         <Show when={installPrompt()}><button class="install-button" type="button" onClick={install}>Install</button></Show>
@@ -313,14 +419,14 @@ export default function App() {
     </header>
 
     <main classList={{ 'convert-main': page() === 'converter' }}>
-      <Show when={page() === 'converter'} fallback={<Show when={page() === 'pairs'} fallback={<Show when={page() === 'about'} fallback={<LicensePage />}><AboutPage onNavigate={handleInternalLink} /></Show>}>
+      <Show when={page() === 'converter'} fallback={<Show when={page() === 'pairs'} fallback={<Show when={page() === 'library'} fallback={<Show when={page() === 'about'} fallback={<LicensePage />}><AboutPage onNavigate={handleInternalLink} /></Show>}><LibraryPage pins={pins()} recents={recentConversions()} onReuse={chooseBrowseQuery} onReusePin={reusePinnedQuery} onUnpin={removeLibraryPin} onRemoveRecent={removeLibraryRecent} onClear={clearLibraryRecent} /></Show>}>
         <section class="browse-page" aria-labelledby="browse-title">
           <div class="browse-heading">
             <div><h1 id="browse-title">Browse supported units</h1><p>Explore the units and measurement categories supported by Human Units.</p></div>
             <strong>{unitCount} units across {catalog.length} categories</strong>
           </div>
 
-          <label class="browse-search" for="unit-search"><span>Search units or categories</span><input id="unit-search" type="search" value={search()} onInput={event => setSearch(event.currentTarget.value)} placeholder="Search units or categories…" autocomplete="off" /></label>
+          <div class="browse-search"><label for="unit-search">Search units or categories</label><div class="browse-search-field"><input id="unit-search" type="search" value={search()} onInput={event => setSearch(event.currentTarget.value)} placeholder="Search units or categories…" autocomplete="off" /><Show when={search()}><button class="clear-search" type="button" onClick={() => setSearch('')} aria-label="Clear unit search"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="m5 5 10 10m0-10L5 15"/></svg></button></Show></div></div>
           <Show when={search().trim()}>
             <section class="search-results" aria-labelledby="search-results-title">
               <div class="browse-section-heading"><h2 id="search-results-title">Search results</h2><span aria-live="polite">{searchResults().length} units</span></div>
@@ -332,65 +438,82 @@ export default function App() {
 
           <Show when={selectedFrom()}>{from => <section class="destination-picker" aria-labelledby="destination-title"><div class="selection-status" role="status"><span><strong>From: {from().name} ({from().symbol})</strong><small id="destination-title">Choose a destination unit</small></span><button type="button" onClick={() => { setSelectedFrom(null); setSearch(''); }}>Clear</button></div><Show when={!search().trim()}><div class="result-grid"><For each={compatibleUnits()}>{unit => <button type="button" onClick={() => chooseUnit(unit, from().category)}><strong>{unit.symbol} <span>— {unit.name}</span></strong><small>{titleCase(from().category)}</small></button>}</For></div></Show></section>}</Show>
 
-          <Show when={!selectedFrom()}><section class="popular-pairs" aria-labelledby="popular-pairs-title">
+          <Show when={!search().trim()}><Show when={!selectedFrom()}><section class="popular-pairs" aria-labelledby="popular-pairs-title">
             <div class="browse-section-heading"><h2 id="popular-pairs-title">Popular conversions</h2></div>
-            <div class="compact-pairs"><For each={popularPairs}>{pair => <a href="#" onClick={() => chooseBrowseQuery(pair.query)} title={`${pair.from.name} to ${pair.to.name}`}><strong>{pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}</strong></a>}</For></div>
+            <div class="compact-pairs"><For each={popularPairs}>{pair => <a href={appRoot} onClick={event => { if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); chooseBrowseQuery(pair.query); }} title={`${pair.from.name} to ${pair.to.name}`}><strong>{pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}</strong></a>}</For></div>
           </section></Show>
 
           <Show when={!selectedFrom()}><section class="category-browser" aria-labelledby="categories-title">
             <div class="browse-section-heading"><h2 id="categories-title">All categories</h2><span>{catalog.length} categories</span></div>
-            <For each={categorySections}>{([sectionName, groups]) => <section class="category-section" aria-labelledby={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}><h3 id={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}>{sectionName}</h3><div class="category-grid"><For each={groups}>{group => <article class="category-item"><button class="category-card" type="button" aria-expanded={expanded().includes(group.category)} onClick={() => toggleCategory(group.category)}><span><strong>{titleCase(group.category)}</strong><small>{group.units.length} units</small></span><span aria-hidden="true">{expanded().includes(group.category) ? '−' : '+'}</span></button><Show when={expanded().includes(group.category)}><div class="unit-panel"><p class="sr-only">Choose a unit from {titleCase(group.category)}. The first unit becomes the source; then choose a compatible destination.</p><div class="unit-chips"><For each={group.units}>{unit => <button type="button" classList={{ selected: selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol }} disabled={selectedFrom() && !isCompatible(unit, group.category) && !(selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol)} onClick={() => chooseUnit(unit, group.category)} aria-pressed={selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol} title={unit.name}><strong>{unit.symbol}</strong><span>{unit.name}</span></button>}</For></div></div></Show></article>}</For></div></section>}</For>
+            <For each={categorySections}>{([sectionName, groups]) => <section class="category-section" aria-labelledby={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}><h3 id={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}>{sectionName}</h3><div class="category-grid"><For each={groups}>{group => <article class="category-item"><button class="category-card" type="button" aria-expanded={expanded().includes(group.category)} onClick={() => toggleCategory(group.category)}><span><strong>{titleCase(group.category)}</strong><small>{group.units.length} units</small></span><span aria-hidden="true">{expanded().includes(group.category) ? '−' : '+'}</span></button><Show when={expanded().includes(group.category)}><div class="unit-panel"><p class="sr-only">Choose a unit from {titleCase(group.category)}. The first unit becomes the source; then choose a compatible destination.</p><div class="unit-chips"><For each={group.units}>{unit => <button type="button" classList={{ selected: selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol, compatible: selectedFrom() && isCompatible(unit, group.category) }} disabled={selectedFrom() && !isCompatible(unit, group.category) && !(selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol)} onClick={() => chooseUnit(unit, group.category)} aria-pressed={selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol} title={unit.name}><strong>{unit.symbol}</strong><span>{unit.name}</span></button>}</For></div></div></Show></article>}</For></div></section>}</For>
           </section></Show>
+          </Show>
         </section>
       </Show>}>
       <section class="hero" aria-label="Unit converter">
-        <form onSubmit={submit} class="converter" role="search">
-          <div class="converter-heading"><label for="conversion-input">What would you like to convert?</label></div>
-          <div class="input-wrap">
-            <input ref={conversionInput} id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); }} onKeyDown={event => { if (event.key === 'Escape' && query()) { event.preventDefault(); setQuery(''); setCopied(false); } }}
-              inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="10 km in miles" aria-describedby="input-hint" />
-          </div>
-          <p id="input-hint" class="hint">Try {examples.map((text, index) => <><button type="button" class="text-button" onClick={() => chooseQuery(text)}>{text}</button>{index < examples.length - 1 ? ', ' : ''}</>)}</p>
-        </form>
+        <div class="converter-composer" classList={{ invalid: query().trim() && !conversion() }}>
+          <form onSubmit={submit} class="converter" role="search">
+            <div class="converter-heading"><label for="conversion-input">What would you like to convert?</label></div>
+            <div class="input-wrap">
+              <input ref={conversionInput} id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); queryDirty = true; }} onBlur={() => { if (queryDirty) remember(); }} onKeyDown={event => { if (event.key === 'Escape' && query()) { event.preventDefault(); clearQuery(); } }}
+                inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="10 km in miles" aria-describedby="input-hint" />
+              <button class="clear-query" type="button" onClick={clearQuery} disabled={!query()} aria-label="Clear conversion input">
+                <svg aria-hidden="true" viewBox="0 0 20 20"><path d="m5 5 10 10m0-10L5 15"/></svg>
+              </button>
+            </div>
+            <p id="input-hint" class="hint">Try {examples.map((text, index) => <><button type="button" class="text-button" onClick={() => chooseExampleQuery(text)}>{text}</button>{index < examples.length - 1 ? ', ' : ''}</>)}</p>
+          </form>
 
-        <div class="result-card" classList={{ invalid: query().trim() && !conversion(), valid: Boolean(conversion()), 'precision-10': precision() === 10, 'precision-15': precision() === 15 }}>
-          <div class="result-heading">
-            <span>{conversion() ? conversion().from.category : 'Result'}</span>
-            <div class="precision-control" role="group" aria-label="Visible precision"><span>Visible precision</span><For each={[6, 10, 15]}>{digits => <button type="button" classList={{ selected: precision() === digits }} aria-pressed={precision() === digits} onClick={() => choosePrecision(digits)}>{digits}</button>}</For></div>
-          </div>
-          <div ref={resultDisplay} class="result" aria-live="polite" aria-atomic="true">
-            <Show when={conversion()} fallback={<span class="empty-result">Your result appears here.</span>}>
-              <strong>{formatValue(conversion().result, conversion().to, conversion().clockStyle, precision())}</strong> <span>{conversion().to.symbol}</span>
+          <div class="result-card" classList={{ invalid: query().trim() && !conversion(), valid: Boolean(conversion()), 'precision-10': precision() === 10, 'precision-15': precision() === 15 }}>
+            <div class="result-heading">
+              <span>{conversion() ? conversion().from.category : 'Result'}</span>
+              <div class="precision-control" role="group" aria-label="Significant digits"><span>Significant digits</span><For each={[6, 10, 15]}>{digits => <button type="button" classList={{ selected: precision() === digits }} aria-pressed={precision() === digits} onClick={() => choosePrecision(digits)}>{digits}</button>}</For></div>
+            </div>
+            <div ref={resultDisplay} class="result" aria-live="polite" aria-atomic="true">
+              <Show when={conversion()} fallback={<span class="empty-result">{query().trim() ? 'Enter a complete conversion, such as 10 km in miles.' : 'Your result appears here.'}</span>}>
+                <strong>{formatValue(conversion().result, conversion().to, conversion().clockStyle, precision())}</strong> <span>{conversion().to.symbol}</span>
+              </Show>
+            </div>
+            <Show when={conversion()}>
+              <div class="actions">
+                <button type="button" onClick={swap} aria-label="Swap units using full precision"><span aria-hidden="true">⇄</span> Swap</button>
+                <button type="button" onClick={copy}><span aria-hidden="true">□</span> {copied() ? 'Copied!' : 'Copy result'}</button>
+                <button type="button" onClick={togglePin} aria-pressed={pinned()}><span aria-hidden="true">{pinned() ? '★' : '☆'}</span> {pinned() ? 'Pinned' : 'Pin pair'}</button>
+              </div>
             </Show>
           </div>
-          <Show when={conversion()}>
-            <div class="actions">
-              <button type="button" onClick={swap} aria-label="Swap units using full precision"><span aria-hidden="true">⇄</span> Swap</button>
-              <button type="button" onClick={copy}><span aria-hidden="true">□</span> {copied() ? 'Copied!' : 'Copy result'}</button>
-              <button type="button" onClick={togglePin} aria-pressed={pinned()}><span aria-hidden="true">{pinned() ? '★' : '☆'}</span> {pinned() ? 'Pinned' : 'Pin pair'}</button>
-            </div>
-          </Show>
         </div>
       </section>
 
-      <div class="collections" role="region" aria-label="Pinned and recent conversions" tabindex="0">
-        <section aria-labelledby="pinned-title">
-          <div class="section-title"><h2 id="pinned-title">Pinned pairs <small>Saved on this device</small></h2><span>{pins().length}</span></div>
-          <Show when={pins().length} fallback={<p class="empty">Pin the conversions you use most.</p>}>
-            <ul><For each={pins()}>{item => <li><button onClick={() => chooseQuery(item.query)}><span>{item.from} → {item.to}</span><small>Convert</small></button></li>}</For></ul>
-          </Show>
+      <Show when={quickReuse().length}>
+        <section class="quick-reuse" aria-labelledby="quick-reuse-title">
+          <div class="quick-reuse-heading">
+            <h2 id="quick-reuse-title">Quick Reuse</h2>
+            <a href={`${appRoot}#library`} onClick={event => handleInternalLink(event, `${appRoot}#library`)}>View library</a>
+          </div>
+          <div class="quick-reuse-grid"><For each={quickReuse()}>{item => <button type="button" onClick={() => reusePinnedQuery(item)} aria-label={`Reuse pinned conversion ${item.from} to ${item.to}`}>
+            <strong>{item.from} <span aria-hidden="true">→</span> {item.to}</strong>
+            <small>Pinned pair</small>
+          </button>}</For></div>
         </section>
-        <section aria-labelledby="recent-title">
-          <div class="section-title"><h2 id="recent-title">Recent</h2><Show when={recentConversions().length}><button class="clear" onClick={() => { setRecentConversions([]); save(HISTORY_KEY, []); }}>Clear</button></Show></div>
-          <Show when={recentConversions().length} fallback={<p class="empty">Press Enter to add a conversion here.</p>}>
-            <ul><For each={recentConversions()}>{item => <li class="recent-item"><button onClick={() => chooseQuery(item.query)}><span>{item.query}</span><strong>{item.result}</strong></button><button class="remove-recent" type="button" onClick={event => removeRecent(event, item.query)} aria-label={`Remove ${item.query} from recent conversions`}><svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 4 8 8m0-8-8 8"/></svg></button></li>}</For></ul>
-          </Show>
-        </section>
-      </div>
+      </Show>
       </Show>
     </main>
 
-    <footer><span>Private · Works offline · No tracking</span><a href={licensePath} onClick={event => handleInternalLink(event, licensePath)}>MIT licensed</a></footer>
+    <nav class="mobile-primary-nav" aria-label="Primary">
+      <a href={appRoot} onClick={event => handleInternalLink(event, appRoot)} aria-current={page() === 'converter' ? 'page' : undefined}>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h14m0 0-3-3m3 3-3 3M20 16H6m0 0 3 3m-3-3 3-3"/></svg>
+        <span>Convert</span>
+      </a>
+      <a href={`${appRoot}#pairs`} onClick={event => handleInternalLink(event, `${appRoot}#pairs`)} aria-current={page() === 'pairs' ? 'page' : undefined}>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 5h5v5H5zM14 5h5v5h-5zM5 14h5v5H5zM14 14h5v5h-5z"/></svg>
+        <span>Browse</span>
+      </a>
+      <a href={`${appRoot}#library`} onClick={event => handleInternalLink(event, `${appRoot}#library`)} aria-current={page() === 'library' ? 'page' : undefined}>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 4.5h12v15l-6-3.5-6 3.5z"/></svg>
+        <span>Library</span>
+      </a>
+    </nav>
     <Show when={updateReady()}><aside class="update-notice" role="status"><span><strong>Update ready</strong> Refresh to use the latest version.</span><button type="button" onClick={() => dispatchEvent(new Event('humanunits:apply-update'))}>Refresh</button></aside></Show>
   </div>;
 }
