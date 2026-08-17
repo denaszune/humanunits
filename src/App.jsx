@@ -207,7 +207,9 @@ export default function App() {
       const gap = parseFloat(styles.columnGap || styles.gap) || 0;
       const numberSize = parseFloat(getComputedStyle(number).fontSize);
       const unitSize = parseFloat(getComputedStyle(unit).fontSize);
-      const required = number.getBoundingClientRect().width + unit.getBoundingClientRect().width + gap;
+      const numberWidth = Math.max(number.getBoundingClientRect().width, number.scrollWidth);
+      const unitWidth = Math.max(unit.getBoundingClientRect().width, unit.scrollWidth);
+      const required = numberWidth + unitWidth + gap;
       if (required <= available || !Number.isFinite(required)) return;
 
       const scale = available / required * 0.98;
