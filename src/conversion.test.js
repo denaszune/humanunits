@@ -96,10 +96,17 @@ describe('conversion engine', () => {
 
   it('formats pace results like clocks when requested', () => {
     const conversion = evaluate('4:45 minute per mile in minute per kilometer');
-    assert.equal(formatValue(conversion.result, conversion.to, conversion.clockStyle), '2:57');
+    assert.equal(conversion.value, 4.75);
+    assert.equal(formatValue(conversion.value, conversion.from, conversion.clockStyle, 15), '4:45');
+    assert.equal(formatValue(conversion.result, conversion.to, conversion.clockStyle, 6), '2:57');
+    assert.equal(formatValue(conversion.result, conversion.to, conversion.clockStyle, 10), '2:57.09');
+    assert.equal(formatValue(conversion.result, conversion.to, conversion.clockStyle, 15), '2:57.09079');
     assert.equal(formatValue(conversion.result, conversion.to), '2.951513163');
     const swimPace = evaluate('1:20 /100 yd to /100 m');
-    assert.equal(formatValue(swimPace.result, swimPace.to, swimPace.clockStyle), '1:27');
+    assert.equal(formatValue(swimPace.result, swimPace.to, swimPace.clockStyle, 6), '1:27');
+    const longPace = evaluate('90:00 min/mi in min/km');
+    assert.equal(formatValue(longPace.result, longPace.to, longPace.clockStyle, 6), '55:55');
+    assert.equal(formatValue(longPace.result, longPace.to, longPace.clockStyle, 10), '55:55.4');
   });
 });
 

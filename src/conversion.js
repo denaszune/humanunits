@@ -171,7 +171,7 @@ export function parseQuery(input) {
     const length = (byAlias.get(clean(pace[3])) || []).find(unit => unit.category === 'length');
     if (!length || !Number.isFinite(distance) || distance <= 0) return null;
     const timeSymbol = pace[1] || (clockInput || distance * length.factor <= 500 ? 'sec' : 'min');
-    const seconds = clockInput ? 1 : /^(?:h|hr|hour)$/.test(timeSymbol) ? 3600 : /^(?:min|minute)$/.test(timeSymbol) ? 60 : 1;
+    const seconds = /^(?:h|hr|hour)$/.test(timeSymbol) ? 3600 : /^(?:min|minute)$/.test(timeSymbol) ? 60 : 1;
     const distanceSymbol = `${pace[2] ? `${pace[2]} ` : ''}${length.symbol}`;
     return { category: 'pace', conversionGroup: 'pace-speed', symbol: `${pace[1] ? `${pace[1]}/` : '/'}${distanceSymbol}`, name: `${timeSymbol} per ${distanceSymbol}`, factor: seconds / (distance * length.factor) };
   };
@@ -185,7 +185,7 @@ export function parseQuery(input) {
   ).map(to => ({from,to})));
   if (!candidates.length) return null;
   const {from,to} = candidates[0];
-  const clockUnitSeconds = from.category === 'pace' && !fromPace
+  const clockUnitSeconds = from.category === 'pace'
     ? /^(?:min)\//.test(from.symbol) ? 60 : /^(?:h)\//.test(from.symbol) ? 3600 : 1
     : 1;
   const value = match[1].includes(':') ? clockValue / clockUnitSeconds : Number(match[1]);
@@ -204,10 +204,12 @@ export function formatNumber(value, maximumSignificantDigits = 10) { if(!Number.
 export function formatValue(value, unit, clockStyle = false, maximumSignificantDigits = 10) {
   if (!clockStyle || unit?.category !== 'pace' || !Number.isFinite(value)) return formatNumber(value, maximumSignificantDigits);
   const unitSeconds = /^min\//.test(unit.symbol) ? 60 : /^h\//.test(unit.symbol) ? 3600 : 1;
-  const roundedSeconds = Math.round(Math.abs(value) * unitSeconds);
-  const hours = Math.floor(roundedSeconds / 3600);
-  const minutes = Math.floor(roundedSeconds % 3600 / 60);
-  const seconds = String(roundedSeconds % 60).padStart(2, '0');
-  const clock = hours ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}` : `${minutes}:${seconds}`;
+  const fractionalDigits = maximumSignificantDigits <= 6 ? 0 : maximumSignificantDigits <= 10 ? 2 : 5;
+  const factor = 10 ** fractionalDigits;
+  const roundedSeconds = Math.round(Math.abs(value) * unitSeconds * factor) / factor;
+  const minutes = Math.floor(roundedSeconds / 60);
+  const fixedSeconds = (roundedSeconds - minutes * 60).toFixed(fractionalDigits).padStart(fractionalDigits ? fractionalDigits + 3 : 2, '0');
+  const seconds = fractionalDigits ? fixedSeconds.replace(/\.?0+$/, '') : fixedSeconds;
+  const clock = `${minutes}:${seconds}`;
   return value < 0 ? `-${clock}` : clock;
 }

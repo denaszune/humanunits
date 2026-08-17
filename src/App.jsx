@@ -49,7 +49,7 @@ function LibraryPage(props) {
         </div>
         <Show when={props.pins.length} fallback={<p class="library-empty">Pin a conversion pair to keep it close at hand.</p>}>
           <ul class="library-list"><For each={props.pins}>{item => <li class="library-item">
-            <button class="library-reuse" type="button" onClick={() => props.onReuse(item.query)} aria-label={`Convert ${item.from} to ${item.to}`}>
+            <button class="library-reuse" type="button" onClick={() => props.onReusePin(item)} aria-label={`Convert ${item.from} to ${item.to}`}>
               <span class="library-pair">{item.from} <span aria-hidden="true">→</span> {item.to}</span>
               <small>Convert</small>
             </button>
@@ -132,6 +132,7 @@ export default function App() {
   let conversionInput;
   let resultDisplay;
   let resultFitFrame;
+  let queryDirty = false;
   const titleCase = text => text.replace(/(^|\s)\S/g, letter => letter.toUpperCase());
   const categorySections = [
     ['Everyday', ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'time', 'calendar duration', 'fuel economy', 'angle', 'typography']],
@@ -250,11 +251,13 @@ export default function App() {
   });
 
   function remember(value = conversion()) {
-    if (!value) return;
+    if (!value) return false;
     const entry = { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle, precision())), result: `${formatValue(value.result, value.to, value.clockStyle, precision())} ${value.to.symbol}` };
     const next = [entry, ...recentConversions().filter(item => item.query !== entry.query)].slice(0, 8);
     setRecentConversions(next);
     save(HISTORY_KEY, next);
+    queryDirty = false;
+    return true;
   }
 
   function submit(event) {
@@ -265,17 +268,28 @@ export default function App() {
   function clearQuery() {
     setQuery('');
     setCopied(false);
+    queryDirty = false;
   }
 
   function chooseQuery(text) {
     setQuery(text);
+    queryDirty = false;
+  }
+
+  function chooseExampleQuery(text) {
+    chooseQuery(text);
     remember(evaluate(text));
   }
 
   function chooseBrowseQuery(text) {
-    const amount = text.match(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?/i);
+    const amount = text.match(/^[+-]?(?:(?:\d+(?::\d+)+(?:\.\d+)?)|(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)/i);
     setBrowseSelection(amount ? { query: text, start: amount.index, end: amount[0].length } : null);
     chooseQuery(text);
+    if (page() !== 'converter') {
+      window.history.pushState(null, '', appRoot);
+      handleLocationChange();
+    }
+    scrollTo({ top: 0, behavior: 'auto' });
   }
 
   function toggleCategory(category) {
@@ -298,7 +312,6 @@ export default function App() {
     if (!isCompatible(unit, category)) return;
     chooseBrowseQuery(symbolPairQuery(from, unit));
     setSelectedFrom(null);
-    location.hash = '';
   }
 
   function removeRecent(event, queryToRemove) {
@@ -308,12 +321,18 @@ export default function App() {
     save(HISTORY_KEY, next);
   }
 
-  function reuseLibraryQuery(text) {
-    chooseQuery(text);
-    window.history.pushState(null, '', appRoot);
-    handleLocationChange();
-    scrollTo({ top: 0, behavior: 'auto' });
-    queueMicrotask(() => conversionInput?.focus());
+  function promotePin(item) {
+    const current = pins();
+    const index = current.findIndex(pin => pin.from === item.from && pin.to === item.to);
+    if (index <= 0) return;
+    const next = [current[index], ...current.slice(0, index), ...current.slice(index + 1)];
+    setPins(next);
+    save(PINS_KEY, next);
+  }
+
+  function reusePinnedQuery(item) {
+    promotePin(item);
+    chooseBrowseQuery(item.query);
   }
 
   function removeLibraryRecent(queryToRemove) {
@@ -343,8 +362,9 @@ export default function App() {
   function swap() {
     const value = conversion();
     if (!value) return;
-    const amount = value.clockStyle ? formatValue(value.result, value.to, true) : String(value.result);
+    const amount = value.clockStyle ? formatValue(value.result, value.to, true, 15) : String(value.result);
     setQuery(symbolPairQuery(value.to, value.from, amount));
+    queryDirty = false;
     requestAnimationFrame(() => remember());
   }
 
@@ -355,6 +375,7 @@ export default function App() {
 
   async function copy() {
     if (!resultText()) return;
+    remember();
     try {
       await navigator.clipboard.writeText(resultText());
       setCopied(true);
@@ -376,17 +397,7 @@ export default function App() {
     const value = conversion();
     return value && pins().some(item => item.from === value.from.symbol && item.to === value.to.symbol);
   });
-  const quickReuse = createMemo(() => {
-    const seen = new Set();
-    return [
-      ...pins().map(item => ({ ...item, kind: 'Pinned' })),
-      ...recentConversions().map(item => ({ ...item, kind: 'Recent' }))
-    ].filter(item => {
-      if (seen.has(item.query)) return false;
-      seen.add(item.query);
-      return true;
-    }).slice(0, 3);
-  });
+  const quickReuse = createMemo(() => pins().slice(0, 3));
 
   return <div class="app-shell" classList={{ 'convert-shell': page() === 'converter' }}>
     <header class="site-header">
@@ -406,7 +417,7 @@ export default function App() {
     </header>
 
     <main classList={{ 'convert-main': page() === 'converter' }}>
-      <Show when={page() === 'converter'} fallback={<Show when={page() === 'pairs'} fallback={<Show when={page() === 'library'} fallback={<Show when={page() === 'about'} fallback={<LicensePage />}><AboutPage onNavigate={handleInternalLink} /></Show>}><LibraryPage pins={pins()} recents={recentConversions()} onReuse={reuseLibraryQuery} onUnpin={removeLibraryPin} onRemoveRecent={removeLibraryRecent} onClear={clearLibraryRecent} /></Show>}>
+      <Show when={page() === 'converter'} fallback={<Show when={page() === 'pairs'} fallback={<Show when={page() === 'library'} fallback={<Show when={page() === 'about'} fallback={<LicensePage />}><AboutPage onNavigate={handleInternalLink} /></Show>}><LibraryPage pins={pins()} recents={recentConversions()} onReuse={chooseBrowseQuery} onReusePin={reusePinnedQuery} onUnpin={removeLibraryPin} onRemoveRecent={removeLibraryRecent} onClear={clearLibraryRecent} /></Show>}>
         <section class="browse-page" aria-labelledby="browse-title">
           <div class="browse-heading">
             <div><h1 id="browse-title">Browse supported units</h1><p>Explore the units and measurement categories supported by Human Units.</p></div>
@@ -427,7 +438,7 @@ export default function App() {
 
           <Show when={!selectedFrom()}><section class="popular-pairs" aria-labelledby="popular-pairs-title">
             <div class="browse-section-heading"><h2 id="popular-pairs-title">Popular conversions</h2></div>
-            <div class="compact-pairs"><For each={popularPairs}>{pair => <a href="#" onClick={() => chooseBrowseQuery(pair.query)} title={`${pair.from.name} to ${pair.to.name}`}><strong>{pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}</strong></a>}</For></div>
+            <div class="compact-pairs"><For each={popularPairs}>{pair => <a href={appRoot} onClick={event => { if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); chooseBrowseQuery(pair.query); }} title={`${pair.from.name} to ${pair.to.name}`}><strong>{pair.from.symbol} <span aria-hidden="true">→</span> {pair.to.symbol}</strong></a>}</For></div>
           </section></Show>
 
           <Show when={!selectedFrom()}><section class="category-browser" aria-labelledby="categories-title">
@@ -441,13 +452,13 @@ export default function App() {
           <form onSubmit={submit} class="converter" role="search">
             <div class="converter-heading"><label for="conversion-input">What would you like to convert?</label></div>
             <div class="input-wrap">
-              <input ref={conversionInput} id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); }} onKeyDown={event => { if (event.key === 'Escape' && query()) { event.preventDefault(); clearQuery(); } }}
+              <input ref={conversionInput} id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); queryDirty = true; }} onBlur={() => { if (queryDirty) remember(); }} onKeyDown={event => { if (event.key === 'Escape' && query()) { event.preventDefault(); clearQuery(); } }}
                 inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="10 km in miles" aria-describedby="input-hint" />
               <button class="clear-query" type="button" onClick={clearQuery} disabled={!query()} aria-label="Clear conversion input">
                 <svg aria-hidden="true" viewBox="0 0 20 20"><path d="m5 5 10 10m0-10L5 15"/></svg>
               </button>
             </div>
-            <p id="input-hint" class="hint">Try {examples.map((text, index) => <><button type="button" class="text-button" onClick={() => chooseQuery(text)}>{text}</button>{index < examples.length - 1 ? ', ' : ''}</>)}</p>
+            <p id="input-hint" class="hint">Try {examples.map((text, index) => <><button type="button" class="text-button" onClick={() => chooseExampleQuery(text)}>{text}</button>{index < examples.length - 1 ? ', ' : ''}</>)}</p>
           </form>
 
           <div class="result-card" classList={{ invalid: query().trim() && !conversion(), valid: Boolean(conversion()), 'precision-10': precision() === 10, 'precision-15': precision() === 15 }}>
@@ -477,11 +488,9 @@ export default function App() {
             <h2 id="quick-reuse-title">Quick Reuse</h2>
             <a href={`${appRoot}#library`} onClick={event => handleInternalLink(event, `${appRoot}#library`)}>View library</a>
           </div>
-          <div class="quick-reuse-grid"><For each={quickReuse()}>{item => <button type="button" onClick={() => chooseBrowseQuery(item.query)} aria-label={`Reuse ${item.kind.toLowerCase()} conversion ${item.query}${item.kind === 'Recent' ? `, result ${item.result}` : ''}`}>
-            <small>{item.kind}</small>
-            <Show when={item.kind === 'Pinned'} fallback={<><span>{item.query}</span><strong>{item.result}</strong></>}>
-              <strong>{item.from} <span aria-hidden="true">→</span> {item.to}</strong>
-            </Show>
+          <div class="quick-reuse-grid"><For each={quickReuse()}>{item => <button type="button" onClick={() => reusePinnedQuery(item)} aria-label={`Reuse pinned conversion ${item.from} to ${item.to}`}>
+            <small>Pinned</small>
+            <strong>{item.from} <span aria-hidden="true">→</span> {item.to}</strong>
           </button>}</For></div>
         </section>
       </Show>
