@@ -82,6 +82,10 @@ describe('conversion engine', () => {
     assert.equal(formatNumber(-0), '0');
     assert.equal(formatNumber(1.25e12), '1.25e+12');
     assert.equal(formatNumber(1.25e-8), '1.25e-8');
+    assert.equal(formatNumber(8.88034964647626e-6, 6), '8.88035e-6');
+    assert.equal(formatNumber(8.88034964647626e-6, 10), '8.880349646e-6');
+    assert.equal(formatNumber(8.88034964647626e-6, 15), '8.88034964647626e-6');
+    assert.equal(formatNumber(0.0001, 15), '0.0001');
     assert.equal(formatNumber(6.2137119224, 6), '6.21371');
     assert.equal(formatNumber(6.2137119224, 15), '6.2137119224');
   });
@@ -107,6 +111,11 @@ describe('conversion engine', () => {
     const longPace = evaluate('90:00 min/mi in min/km');
     assert.equal(formatValue(longPace.result, longPace.to, longPace.clockStyle, 6), '55:55');
     assert.equal(formatValue(longPace.result, longPace.to, longPace.clockStyle, 10), '55:55.4');
+  });
+
+  it('uses readable scientific notation for very small conversion results', () => {
+    const conversion = evaluate('23 m² in mi²');
+    assert.equal(formatValue(conversion.result, conversion.to, conversion.clockStyle, 15), '8.88034964647625e-6');
   });
 });
 

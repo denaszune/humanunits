@@ -464,7 +464,7 @@ export default function App() {
           <div class="result-card" classList={{ invalid: query().trim() && !conversion(), valid: Boolean(conversion()), 'precision-10': precision() === 10, 'precision-15': precision() === 15 }}>
             <div class="result-heading">
               <span>{conversion() ? conversion().from.category : 'Result'}</span>
-              <div class="precision-control" role="group" aria-label="Visible precision"><span>Visible precision</span><For each={[6, 10, 15]}>{digits => <button type="button" classList={{ selected: precision() === digits }} aria-pressed={precision() === digits} onClick={() => choosePrecision(digits)}>{digits}</button>}</For></div>
+              <div class="precision-control" role="group" aria-label="Significant digits"><span>Significant digits</span><For each={[6, 10, 15]}>{digits => <button type="button" classList={{ selected: precision() === digits }} aria-pressed={precision() === digits} onClick={() => choosePrecision(digits)}>{digits}</button>}</For></div>
             </div>
             <div ref={resultDisplay} class="result" aria-live="polite" aria-atomic="true">
               <Show when={conversion()} fallback={<span class="empty-result">{query().trim() ? 'Enter a complete conversion, such as 10 km in miles.' : 'Your result appears here.'}</span>}>
