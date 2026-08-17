@@ -76,6 +76,16 @@ describe('conversion engine', () => {
     assert.equal(formatNumber(-0), '0');
     assert.equal(formatNumber(1.25e12), '1.25e+12');
     assert.equal(formatNumber(1.25e-8), '1.25e-8');
+    assert.equal(formatNumber(6.2137119224, 6), '6.21371');
+    assert.equal(formatNumber(6.2137119224, 15), '6.2137119224');
+  });
+
+  it('round-trips a swapped conversion when the internal result is preserved', () => {
+    const forward = evaluate('1 km in mi');
+    const roundedReverse = evaluate(`${formatValue(forward.result, forward.to)} mi in km`);
+    const fullPrecisionReverse = evaluate(`${String(forward.result)} mi in km`);
+    assert.equal(formatValue(roundedReverse.result, roundedReverse.to), '0.9999999999');
+    assert.equal(formatValue(fullPrecisionReverse.result, fullPrecisionReverse.to), '1');
   });
 
   it('formats pace results like clocks when requested', () => {

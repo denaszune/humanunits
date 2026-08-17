@@ -51,7 +51,7 @@ h1 { margin: .55rem 0 .75rem; max-width: 650px; font-family: var(--font-editoria
 .input-wrap input:focus { border-color: var(--ink); }
 .hint { margin: .65rem .1rem 1.4rem; color: var(--muted); font-size: .82rem; line-height: 1.8; }
 .text-button { appearance: none; padding: 0; border: 0; border-bottom: 1px dotted; background: none; color: #315f53; cursor: pointer; }
-.result-card { overflow: hidden; border-radius: 1rem; background: var(--ink); color: white; box-shadow: 0 20px 50px #123f3526; }
+.result-card { container-type: inline-size; overflow: hidden; border-radius: 1rem; background: var(--ink); color: white; box-shadow: 0 20px 50px #123f3526; }
 .result-card.invalid { background: #6a352c; }
 .result-heading { display: flex; justify-content: space-between; padding: 1rem 1.2rem 0; color: #bcd4ca; font-size: .74rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
 .result { min-height: 8.5rem; padding: 1rem 1.2rem 1.4rem; display: flex; align-items: baseline; gap: .55rem; }
@@ -63,6 +63,24 @@ h1 { margin: .55rem 0 .75rem; max-width: 650px; font-family: var(--font-editoria
 .actions button:last-child { border-right: 0; }
 .actions button:hover { background: #ffffff12; }
 .actions span { margin-right: .25rem; font-size: 1.1rem; }
+.result-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .75rem; }
+.result-heading > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.precision-control { min-width: 0; margin: 0; padding: 0; display: flex; align-items: center; gap: .25rem; border: 0; color: inherit; }
+.precision-control > span { margin-right: .35rem; font-size: .68rem; font-weight: 650; letter-spacing: .02em; text-transform: none; white-space: nowrap; }
+.precision-control button { min-width: 27px; min-height: 27px; padding: 0 .3rem; border: 1px solid #7d928a; border-radius: .35rem; background: transparent; color: inherit; font-size: .68rem; font-weight: 700; cursor: pointer; }
+.precision-control button:hover { background: #ffffff12; }
+.precision-control button.selected { border-color: var(--surface); background: var(--surface); color: var(--ink); }
+.result-card .result strong { font-size: clamp(3rem, 12.5cqw, 6rem); }
+.result-card.precision-10 .result strong { font-size: clamp(2.7rem, 11.5cqw, 5.75rem); }
+.result-card.precision-15 .result strong { font-size: clamp(1.8rem, 10.3cqw, 5.3rem); letter-spacing: -.04em; }
+.result-card .result { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
+.result-card .result strong { flex: none; overflow-wrap: normal; word-break: normal; }
+.result-card .result > span { flex: none; }
+@media (max-width: 520px) {
+  .result-heading { grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; }
+  .precision-control > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+  .result-card.valid .result { min-height: 96px; padding-bottom: var(--space-4); }
+}
 .collections { display: grid; gap: 1.4rem; width: 100%; max-width: var(--convert-width); margin: 1.8rem auto 0; }
 .convert-main .collections { min-height: 0; padding-bottom: 1rem; overflow-y: auto; overscroll-behavior: contain; }
 .collections section { min-width: 0; }

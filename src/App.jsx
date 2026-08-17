@@ -3,6 +3,7 @@ import { evaluate, formatValue, supportedUnits } from './conversion.js';
 
 const HISTORY_KEY = 'humanunits:history:v1';
 const PINS_KEY = 'humanunits:pins:v1';
+const PRECISION_KEY = 'humanunits:precision:v1';
 const examples = ['10 km in miles', '72 f to c', '5 lb to kg'];
 const appRoot = import.meta.env.BASE_PATH === './' ? '/' : import.meta.env.BASE_PATH;
 const licensePath = `${appRoot}license`;
@@ -43,6 +44,13 @@ function save(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Storage can be unavailable. */ }
 }
 
+function loadPrecision() {
+  try {
+    const value = JSON.parse(localStorage.getItem(PRECISION_KEY));
+    return [6, 10, 15].includes(value) ? value : 6;
+  } catch { return 6; }
+}
+
 export default function App() {
   const [query, setQuery] = createSignal('');
   const [recentConversions, setRecentConversions] = createSignal(load(HISTORY_KEY).map(entry => {
@@ -54,6 +62,7 @@ export default function App() {
     query: `1 ${item.from} in ${item.to}`
   })));
   const [copied, setCopied] = createSignal(false);
+  const [precision, setPrecision] = createSignal(loadPrecision());
   const [installPrompt, setInstallPrompt] = createSignal(null);
   const [updateReady, setUpdateReady] = createSignal(false);
   const catalog = supportedUnits();
@@ -70,6 +79,8 @@ export default function App() {
   const [selectedFrom, setSelectedFrom] = createSignal(null);
   const [browseSelection, setBrowseSelection] = createSignal(null);
   let conversionInput;
+  let resultDisplay;
+  let resultFitFrame;
   const titleCase = text => text.replace(/(^|\s)\S/g, letter => letter.toUpperCase());
   const categorySections = [
     ['Everyday', ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'time', 'calendar duration', 'fuel economy', 'angle', 'typography']],
@@ -126,7 +137,51 @@ export default function App() {
   const conversion = createMemo(() => evaluate(query()));
   const resultText = createMemo(() => {
     const value = conversion();
-    return value ? `${formatValue(value.result, value.to, value.clockStyle)} ${value.to.symbol}` : '';
+    return value ? `${formatValue(value.result, value.to, value.clockStyle, precision())} ${value.to.symbol}` : '';
+  });
+
+  function fitResult() {
+    cancelAnimationFrame(resultFitFrame);
+    resultFitFrame = requestAnimationFrame(() => {
+      const number = resultDisplay?.querySelector('strong');
+      const unit = resultDisplay?.querySelector(':scope > span:not(.empty-result)');
+      if (!number || !unit) return;
+
+      number.style.fontSize = '';
+      unit.style.fontSize = '';
+      const styles = getComputedStyle(resultDisplay);
+      const available = resultDisplay.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
+      const gap = parseFloat(styles.columnGap || styles.gap) || 0;
+      const numberSize = parseFloat(getComputedStyle(number).fontSize);
+      const unitSize = parseFloat(getComputedStyle(unit).fontSize);
+      const required = number.getBoundingClientRect().width + unit.getBoundingClientRect().width + gap;
+      if (required <= available || !Number.isFinite(required)) return;
+
+      const scale = available / required * 0.98;
+      number.style.fontSize = `${numberSize * scale}px`;
+      unit.style.fontSize = `${unitSize * scale}px`;
+    });
+  }
+
+  createEffect(() => {
+    resultText();
+    queueMicrotask(fitResult);
+  });
+
+  onMount(() => {
+    if (!resultDisplay || !('ResizeObserver' in window)) return;
+    let previousWidth = resultDisplay.clientWidth;
+    const observer = new ResizeObserver(() => {
+      const width = resultDisplay.clientWidth;
+      if (width === previousWidth) return;
+      previousWidth = width;
+      fitResult();
+    });
+    observer.observe(resultDisplay);
+    onCleanup(() => {
+      observer.disconnect();
+      cancelAnimationFrame(resultFitFrame);
+    });
   });
 
   createEffect(() => {
@@ -145,7 +200,7 @@ export default function App() {
 
   function remember(value = conversion()) {
     if (!value) return;
-    const entry = { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle)), result: `${formatValue(value.result, value.to, value.clockStyle)} ${value.to.symbol}` };
+    const entry = { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle, precision())), result: `${formatValue(value.result, value.to, value.clockStyle, precision())} ${value.to.symbol}` };
     const next = [entry, ...recentConversions().filter(item => item.query !== entry.query)].slice(0, 8);
     setRecentConversions(next);
     save(HISTORY_KEY, next);
@@ -207,8 +262,14 @@ export default function App() {
   function swap() {
     const value = conversion();
     if (!value) return;
-    setQuery(symbolPairQuery(value.to, value.from, formatValue(value.result, value.to, value.clockStyle)));
+    const amount = value.clockStyle ? formatValue(value.result, value.to, true) : String(value.result);
+    setQuery(symbolPairQuery(value.to, value.from, amount));
     requestAnimationFrame(() => remember());
+  }
+
+  function choosePrecision(value) {
+    setPrecision(value);
+    save(PRECISION_KEY, value);
   }
 
   async function copy() {
@@ -292,19 +353,19 @@ export default function App() {
           <p id="input-hint" class="hint">Try {examples.map((text, index) => <><button type="button" class="text-button" onClick={() => chooseQuery(text)}>{text}</button>{index < examples.length - 1 ? ', ' : ''}</>)}</p>
         </form>
 
-        <div class="result-card" classList={{ invalid: query().trim() && !conversion() }}>
+        <div class="result-card" classList={{ invalid: query().trim() && !conversion(), valid: Boolean(conversion()), 'precision-10': precision() === 10, 'precision-15': precision() === 15 }}>
           <div class="result-heading">
             <span>{conversion() ? conversion().from.category : 'Result'}</span>
-            <Show when={conversion()}><span>{formatValue(conversion().value, conversion().from, conversion().clockStyle)} {conversion().from.symbol}</span></Show>
+            <div class="precision-control" role="group" aria-label="Visible precision"><span>Visible precision</span><For each={[6, 10, 15]}>{digits => <button type="button" classList={{ selected: precision() === digits }} aria-pressed={precision() === digits} onClick={() => choosePrecision(digits)}>{digits}</button>}</For></div>
           </div>
-          <div class="result" aria-live="polite" aria-atomic="true">
+          <div ref={resultDisplay} class="result" aria-live="polite" aria-atomic="true">
             <Show when={conversion()} fallback={<span class="empty-result">Your result appears here.</span>}>
-              <strong>{formatValue(conversion().result, conversion().to, conversion().clockStyle)}</strong> <span>{conversion().to.symbol}</span>
+              <strong>{formatValue(conversion().result, conversion().to, conversion().clockStyle, precision())}</strong> <span>{conversion().to.symbol}</span>
             </Show>
           </div>
           <Show when={conversion()}>
             <div class="actions">
-              <button type="button" onClick={swap}><span aria-hidden="true">⇄</span> Swap</button>
+              <button type="button" onClick={swap} aria-label="Swap units using full precision"><span aria-hidden="true">⇄</span> Swap</button>
               <button type="button" onClick={copy}><span aria-hidden="true">□</span> {copied() ? 'Copied!' : 'Copy result'}</button>
               <button type="button" onClick={togglePin} aria-pressed={pinned()}><span aria-hidden="true">{pinned() ? '★' : '☆'}</span> {pinned() ? 'Pinned' : 'Pin pair'}</button>
             </div>
