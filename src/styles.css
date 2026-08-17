@@ -233,3 +233,81 @@ footer { min-height: 56px; }
   main { padding-inline: var(--space-4); }
   .actions button { min-height: var(--control-height); }
 }
+
+/* Unified converter composition. */
+.convert-main { padding-top: var(--space-6); }
+.hero { margin: 0 auto; }
+.converter-composer {
+  width: 100%;
+  min-height: 390px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+.converter-composer.invalid { border-color: color-mix(in srgb, var(--accent) 42%, var(--border)); }
+.converter { padding: var(--space-6) var(--space-6) 0; }
+.converter-heading { margin-bottom: var(--space-3); }
+.converter-heading label { color: var(--deep-green); font-family: var(--font-editorial); font-size: clamp(1.3rem, 3vw, 1.65rem); font-weight: 600; line-height: 1.2; letter-spacing: -.02em; }
+.converter-heading label::before, .converter-heading label::after { content: none; }
+.converter .input-wrap { display: flex; align-items: center; }
+.converter .input-wrap input { min-height: 68px; padding: var(--space-3) 64px var(--space-3) var(--space-4); border-width: 1px; border-color: var(--border-strong); border-radius: var(--radius-md); background: var(--canvas); box-shadow: none; }
+.converter .input-wrap input:focus { border-color: var(--ink); box-shadow: 0 0 0 4px #123c3417; }
+.clear-query {
+  position: absolute;
+  right: var(--space-3);
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.clear-query:hover:not(:disabled) { background: var(--soft-green); color: var(--ink); }
+.clear-query:active:not(:disabled) { background: var(--border); }
+.clear-query:disabled { cursor: default; opacity: .28; }
+.clear-query svg { width: 18px; height: 18px; }
+.clear-query path { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.converter .hint { margin: var(--space-2) var(--space-1) var(--space-4); color: var(--muted); }
+.converter-composer .result-card {
+  min-height: 226px;
+  display: grid;
+  grid-template-rows: auto minmax(126px, 1fr) auto;
+  overflow: visible;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+}
+.converter-composer .result-card.invalid { border-color: color-mix(in srgb, var(--accent) 28%, var(--border)); background: var(--accent-soft); }
+.converter-composer .result-heading { min-width: 0; padding: var(--space-4) var(--space-6) 0; color: var(--muted); }
+.converter-composer .result-heading span { min-width: 0; overflow-wrap: anywhere; }
+.converter-composer .result-heading span:last-child { text-align: right; }
+.converter-composer .result { min-height: 126px; padding: var(--space-2) var(--space-6) var(--space-6); align-items: center; color: var(--deep-green); }
+.converter-composer .result strong { min-width: 0; max-width: 100%; color: var(--deep-green); font-size: clamp(3.25rem, 10vw, 5.75rem); line-height: .95; }
+.converter-composer .result > span { color: var(--muted); }
+.converter-composer .result .empty-result { max-width: 42ch; color: var(--muted); font-size: var(--font-size-body); line-height: var(--line-height-body); }
+.converter-composer.invalid .result .empty-result { color: #713b30; }
+.converter-composer .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--border); }
+.converter-composer .actions button { min-width: 0; min-height: 52px; padding: var(--space-2); border-right: 1px solid var(--border); background: transparent; color: var(--ink); }
+.converter-composer .actions button:hover { background: var(--soft-green); }
+.converter-composer .actions button:active { background: var(--border); transform: none; }
+.converter-composer .actions button[aria-pressed="true"] { background: var(--accent-soft); color: #713b30; }
+
+@media (max-width: 520px) {
+  .convert-main { padding-top: var(--space-4); }
+  .converter-composer { min-height: 382px; border-radius: var(--radius-lg); }
+  .converter { padding: var(--space-4) var(--space-4) 0; }
+  .converter .input-wrap input { min-height: 62px; padding-left: var(--space-3); }
+  .converter-composer .result-heading { padding-inline: var(--space-4); }
+  .converter-composer .result { padding-inline: var(--space-4); }
+  .converter-composer .result strong { font-size: clamp(2.75rem, 16vw, 4.5rem); }
+  .converter-composer .actions button { overflow-wrap: anywhere; }
+}

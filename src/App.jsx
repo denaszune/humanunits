@@ -156,6 +156,11 @@ export default function App() {
     remember();
   }
 
+  function clearQuery() {
+    setQuery('');
+    setCopied(false);
+  }
+
   function chooseQuery(text) {
     setQuery(text);
     remember(evaluate(text));
@@ -283,32 +288,37 @@ export default function App() {
         </section>
       </Show>}>
       <section class="hero" aria-label="Unit converter">
-        <form onSubmit={submit} class="converter" role="search">
-          <div class="converter-heading"><label for="conversion-input">What would you like to convert?</label></div>
-          <div class="input-wrap">
-            <input ref={conversionInput} id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); }} onKeyDown={event => { if (event.key === 'Escape' && query()) { event.preventDefault(); setQuery(''); setCopied(false); } }}
-              inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="10 km in miles" aria-describedby="input-hint" />
-          </div>
-          <p id="input-hint" class="hint">Try {examples.map((text, index) => <><button type="button" class="text-button" onClick={() => chooseQuery(text)}>{text}</button>{index < examples.length - 1 ? ', ' : ''}</>)}</p>
-        </form>
+        <div class="converter-composer" classList={{ invalid: query().trim() && !conversion() }}>
+          <form onSubmit={submit} class="converter" role="search">
+            <div class="converter-heading"><label for="conversion-input">What would you like to convert?</label></div>
+            <div class="input-wrap">
+              <input ref={conversionInput} id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); }} onKeyDown={event => { if (event.key === 'Escape' && query()) { event.preventDefault(); clearQuery(); } }}
+                inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="10 km in miles" aria-describedby="input-hint" />
+              <button class="clear-query" type="button" onClick={clearQuery} disabled={!query()} aria-label="Clear conversion input">
+                <svg aria-hidden="true" viewBox="0 0 20 20"><path d="m5 5 10 10m0-10L5 15"/></svg>
+              </button>
+            </div>
+            <p id="input-hint" class="hint">Try {examples.map((text, index) => <><button type="button" class="text-button" onClick={() => chooseQuery(text)}>{text}</button>{index < examples.length - 1 ? ', ' : ''}</>)}</p>
+          </form>
 
-        <div class="result-card" classList={{ invalid: query().trim() && !conversion() }}>
-          <div class="result-heading">
-            <span>{conversion() ? conversion().from.category : 'Result'}</span>
-            <Show when={conversion()}><span>{formatValue(conversion().value, conversion().from, conversion().clockStyle)} {conversion().from.symbol}</span></Show>
-          </div>
-          <div class="result" aria-live="polite" aria-atomic="true">
-            <Show when={conversion()} fallback={<span class="empty-result">Your result appears here.</span>}>
-              <strong>{formatValue(conversion().result, conversion().to, conversion().clockStyle)}</strong> <span>{conversion().to.symbol}</span>
+          <div class="result-card" classList={{ invalid: query().trim() && !conversion() }}>
+            <div class="result-heading">
+              <span>{conversion() ? conversion().from.category : 'Result'}</span>
+              <Show when={conversion()}><span>{formatValue(conversion().value, conversion().from, conversion().clockStyle)} {conversion().from.symbol}</span></Show>
+            </div>
+            <div class="result" aria-live="polite" aria-atomic="true">
+              <Show when={conversion()} fallback={<span class="empty-result">{query().trim() ? 'Enter a complete conversion, such as 10 km in miles.' : 'Your result appears here.'}</span>}>
+                <strong>{formatValue(conversion().result, conversion().to, conversion().clockStyle)}</strong> <span>{conversion().to.symbol}</span>
+              </Show>
+            </div>
+            <Show when={conversion()}>
+              <div class="actions">
+                <button type="button" onClick={swap}><span aria-hidden="true">⇄</span> Swap</button>
+                <button type="button" onClick={copy}><span aria-hidden="true">□</span> {copied() ? 'Copied!' : 'Copy result'}</button>
+                <button type="button" onClick={togglePin} aria-pressed={pinned()}><span aria-hidden="true">{pinned() ? '★' : '☆'}</span> {pinned() ? 'Pinned' : 'Pin pair'}</button>
+              </div>
             </Show>
           </div>
-          <Show when={conversion()}>
-            <div class="actions">
-              <button type="button" onClick={swap}><span aria-hidden="true">⇄</span> Swap</button>
-              <button type="button" onClick={copy}><span aria-hidden="true">□</span> {copied() ? 'Copied!' : 'Copy result'}</button>
-              <button type="button" onClick={togglePin} aria-pressed={pinned()}><span aria-hidden="true">{pinned() ? '★' : '☆'}</span> {pinned() ? 'Pinned' : 'Pin pair'}</button>
-            </div>
-          </Show>
         </div>
       </section>
 
