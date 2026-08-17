@@ -376,6 +376,17 @@ export default function App() {
     const value = conversion();
     return value && pins().some(item => item.from === value.from.symbol && item.to === value.to.symbol);
   });
+  const quickReuse = createMemo(() => {
+    const seen = new Set();
+    return [
+      ...pins().map(item => ({ ...item, kind: 'Pinned' })),
+      ...recentConversions().map(item => ({ ...item, kind: 'Recent' }))
+    ].filter(item => {
+      if (seen.has(item.query)) return false;
+      seen.add(item.query);
+      return true;
+    }).slice(0, 3);
+  });
 
   return <div class="app-shell" classList={{ 'convert-shell': page() === 'converter' }}>
     <header class="site-header">
@@ -460,20 +471,20 @@ export default function App() {
         </div>
       </section>
 
-      <div class="collections" role="region" aria-label="Pinned and recent conversions" tabindex="0">
-        <section aria-labelledby="pinned-title">
-          <div class="section-title"><h2 id="pinned-title">Pinned pairs <small>Saved on this device</small></h2><span>{pins().length}</span></div>
-          <Show when={pins().length} fallback={<p class="empty">Pin the conversions you use most.</p>}>
-            <ul><For each={pins()}>{item => <li><button onClick={() => chooseQuery(item.query)}><span>{item.from} → {item.to}</span><small>Convert</small></button></li>}</For></ul>
-          </Show>
+      <Show when={quickReuse().length}>
+        <section class="quick-reuse" aria-labelledby="quick-reuse-title">
+          <div class="quick-reuse-heading">
+            <h2 id="quick-reuse-title">Quick Reuse</h2>
+            <a href={`${appRoot}#library`} onClick={event => handleInternalLink(event, `${appRoot}#library`)}>View library</a>
+          </div>
+          <div class="quick-reuse-grid"><For each={quickReuse()}>{item => <button type="button" onClick={() => chooseBrowseQuery(item.query)} aria-label={`Reuse ${item.kind.toLowerCase()} conversion ${item.query}${item.kind === 'Recent' ? `, result ${item.result}` : ''}`}>
+            <small>{item.kind}</small>
+            <Show when={item.kind === 'Pinned'} fallback={<><span>{item.query}</span><strong>{item.result}</strong></>}>
+              <strong>{item.from} <span aria-hidden="true">→</span> {item.to}</strong>
+            </Show>
+          </button>}</For></div>
         </section>
-        <section aria-labelledby="recent-title">
-          <div class="section-title"><h2 id="recent-title">Recent</h2><Show when={recentConversions().length}><button class="clear" onClick={() => { setRecentConversions([]); save(HISTORY_KEY, []); }}>Clear</button></Show></div>
-          <Show when={recentConversions().length} fallback={<p class="empty">Press Enter to add a conversion here.</p>}>
-            <ul><For each={recentConversions()}>{item => <li class="recent-item"><button onClick={() => chooseQuery(item.query)}><span>{item.query}</span><strong>{item.result}</strong></button><button class="remove-recent" type="button" onClick={event => removeRecent(event, item.query)} aria-label={`Remove ${item.query} from recent conversions`}><svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 4 8 8m0-8-8 8"/></svg></button></li>}</For></ul>
-          </Show>
-        </section>
-      </div>
+      </Show>
       </Show>
     </main>
 
