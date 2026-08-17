@@ -133,6 +133,8 @@ export default function App() {
   let conversionInput;
   let resultDisplay;
   let resultFitFrame;
+  let resultObserver;
+  let observedResult;
   let queryDirty = false;
   const titleCase = text => text.replace(/(^|\s)\S/g, letter => letter.toUpperCase());
   const categorySections = [
@@ -218,24 +220,28 @@ export default function App() {
     });
   }
 
+  function observeResultSize() {
+    if (!resultObserver || !resultDisplay || observedResult === resultDisplay) return;
+    if (observedResult) resultObserver.unobserve(observedResult);
+    observedResult = resultDisplay;
+    resultObserver.observe(observedResult);
+  }
+
   createEffect(() => {
     resultText();
     if (page() !== 'converter') return;
-    queueMicrotask(fitResult);
+    queueMicrotask(() => {
+      observeResultSize();
+      fitResult();
+    });
   });
 
   onMount(() => {
     if (!resultDisplay || !('ResizeObserver' in window)) return;
-    let previousWidth = resultDisplay.clientWidth;
-    const observer = new ResizeObserver(() => {
-      const width = resultDisplay.clientWidth;
-      if (width === previousWidth) return;
-      previousWidth = width;
-      fitResult();
-    });
-    observer.observe(resultDisplay);
+    resultObserver = new ResizeObserver(fitResult);
+    observeResultSize();
     onCleanup(() => {
-      observer.disconnect();
+      resultObserver.disconnect();
       cancelAnimationFrame(resultFitFrame);
     });
   });
