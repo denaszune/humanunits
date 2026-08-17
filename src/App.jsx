@@ -492,7 +492,6 @@ export default function App() {
             <a href={`${appRoot}#library`} onClick={event => handleInternalLink(event, `${appRoot}#library`)}>View library</a>
           </div>
           <div class="quick-reuse-grid"><For each={quickReuse()}>{item => <button type="button" onClick={() => reusePinnedQuery(item)} aria-label={`Reuse pinned conversion ${item.from} to ${item.to}`}>
-            <small>Pinned</small>
             <strong>{item.from} <span aria-hidden="true">→</span> {item.to}</strong>
           </button>}</For></div>
         </section>
