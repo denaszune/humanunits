@@ -44,7 +44,7 @@ function LibraryPage(props) {
     <div class="library-grid">
       <section class="library-panel" aria-labelledby="library-pins-title">
         <div class="library-section-heading">
-          <div><h2 id="library-pins-title">Pinned Pairs</h2><p>Directed conversion pairs for quick reuse.</p></div>
+          <div><h2 id="library-pins-title">Pinned Pairs</h2></div>
           <span class="library-count" aria-label={`${props.pins.length} of 8 pinned pairs`}>{props.pins.length} / 8</span>
         </div>
         <Show when={props.pins.length} fallback={<p class="library-empty">Pin a conversion pair to keep it close at hand.</p>}>
@@ -62,7 +62,7 @@ function LibraryPage(props) {
 
       <section class="library-panel" aria-labelledby="library-recent-title">
         <div class="library-section-heading">
-          <div><h2 id="library-recent-title">Recent</h2><p>Conversions added through existing actions.</p></div>
+          <div><h2 id="library-recent-title">Recent</h2></div>
           <div class="library-section-actions">
             <span class="library-count" aria-label={`${props.recents.length} of 8 recent conversions`}>{props.recents.length} / 8</span>
             <Show when={props.recents.length}><button class="library-clear" type="button" onClick={props.onClear}>Clear</button></Show>

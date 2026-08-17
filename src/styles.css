@@ -99,10 +99,11 @@ h2 small { margin-left: .35rem; color: var(--muted); font-size: .68rem; font-wei
 .clear { border: 0; background: none; color: #8a3b25; font-size: .78rem; text-decoration: underline; cursor: pointer; }
 ul { margin: .7rem 0 0; padding: 0; list-style: none; }
 li button { width: 100%; min-height: var(--control-height); padding: var(--space-3) var(--space-1); display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); border: 0; border-bottom: 1px solid var(--border); background: transparent; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
-li button:hover { color: #a64021; }
+.collections li > button:first-child:hover, .collections li > button:first-child:focus-visible { background: var(--soft-green); color: var(--ink); }
 li small { color: #64766f; }
 li strong { text-align: right; }
 .recent-item { display: flex; align-items: center; border-bottom: 1px solid var(--border); }
+.recent-item:has(> button:first-child:hover), .recent-item:has(> button:first-child:focus-visible) { background: var(--soft-green); }
 .recent-item > button:first-child { min-width: 0; flex: 1; border-bottom: 0; }
 .recent-item .remove-recent { width: 1.75rem; min-height: 1.75rem; padding: 0; flex: 0 0 1.75rem; display: grid; place-items: center; border: 0; border-radius: 50%; color: #80655c; line-height: 1; }
 .remove-recent svg { width: 1rem; height: 1rem; display: block; overflow: visible; transform: translateX(calc(50% - 2px)); }
@@ -163,27 +164,31 @@ footer a { color: inherit; }
 .library-heading > p:last-child { max-width: var(--measure); margin: 0; color: var(--muted); }
 .library-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-6); align-items: start; }
 .library-panel { min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-card); }
-.library-section-heading { min-height: 86px; padding: var(--space-4); display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); border-bottom: 1px solid var(--border); }
-.library-section-heading h2 { margin: 0 0 var(--space-1); color: var(--deep-green); }
-.library-section-heading p { margin: 0; color: var(--muted); font-size: var(--font-size-sm); line-height: 1.4; }
+.library-section-heading { min-height: 64px; padding: var(--space-3) var(--space-4); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); border-bottom: 1px solid var(--border); }
+.library-section-heading h2 { margin: 0; color: var(--deep-green); }
 .library-section-actions { display: flex; align-items: center; gap: var(--space-2); }
 .library-count { min-width: 42px; min-height: 28px; padding: 0 var(--space-2); display: grid; place-items: center; border-radius: var(--radius-sm); background: var(--soft-green); color: var(--ink); font-size: .72rem; font-weight: 800; white-space: nowrap; }
 .library-clear { min-height: var(--control-height); padding: 0 var(--space-2); border: 0; background: transparent; color: #8a3b25; font-size: var(--font-size-sm); text-decoration: underline; text-underline-offset: .18em; cursor: pointer; }
 .library-list { margin: 0; }
-.library-item { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--control-height); align-items: stretch; border-bottom: 1px solid var(--border); }
+.library-item { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) calc(var(--control-height) + var(--space-2)); align-items: stretch; border-bottom: 1px solid var(--border); transition: background-color var(--duration-state) var(--ease); }
+.library-item:has(.library-reuse:hover), .library-item:has(.library-reuse:focus-visible) { background: var(--soft-green); }
 .library-item:last-child { border-bottom: 0; }
 .library-item button { border-bottom: 0; }
 .library-reuse { min-width: 0; min-height: 68px; padding: var(--space-3) var(--space-4); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); border: 0; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
-.library-reuse:hover { background: var(--soft-green); color: var(--ink); }
+.library-reuse:hover, .library-reuse:focus-visible { background: transparent; color: var(--ink); }
 .library-reuse small { flex: none; color: var(--muted); }
 .library-pair { min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
 .library-pair span { color: var(--accent); }
 .library-recent { align-items: flex-start; flex-direction: column; justify-content: center; gap: var(--space-1); }
 .library-recent > span, .library-recent strong { max-width: 100%; overflow-wrap: anywhere; }
 .library-recent strong { color: var(--deep-green); text-align: left; font-variant-numeric: tabular-nums; }
-.library-remove { width: var(--control-height); min-height: var(--control-height); padding: 0; display: grid; place-items: center; align-self: center; border: 0; border-radius: 50%; background: transparent; color: #80655c; cursor: pointer; }
-.library-remove:hover { background: var(--accent-soft); color: #8a3b25; }
-.library-remove svg { width: 18px; height: 18px; }
+.library-remove { position: relative; z-index: 0; width: var(--control-height); min-height: var(--control-height); padding: 0; display: grid; place-content: center; place-items: center; align-self: center; justify-self: start; border: 0; border-radius: 50%; background: transparent; color: #80655c; cursor: pointer; }
+.library-remove::before { content: ''; position: absolute; z-index: -1; width: 38px; height: 38px; border-radius: 50%; background: transparent; }
+.library-remove:hover, .library-remove:focus-visible { background: transparent; color: #8a3b25; }
+.library-remove:hover::before, .library-remove:focus-visible::before { background: var(--accent-soft); }
+.library-remove:focus-visible { outline: 0; }
+.library-remove:focus-visible::before { box-shadow: 0 0 0 3px var(--accent); }
+.library-remove svg { width: 18px; height: 18px; display: block; place-self: center; }
 .library-remove path { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
 .library-empty { min-height: 96px; margin: 0; padding: var(--space-6) var(--space-4); color: var(--muted); font-size: .88rem; }
 .about-page h1 { font-size: clamp(2.2rem, 6vw, 3.75rem); }
