@@ -318,6 +318,7 @@ footer { min-height: 56px; }
 .converter-composer.invalid .result .empty-result { color: #713b30; }
 .converter-composer .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--border); }
 .converter-composer .actions button { min-width: 0; min-height: 52px; padding: var(--space-2); border-right: 1px solid var(--border); background: transparent; color: var(--ink); }
+.converter-composer .actions button:last-child { border-right: 0; }
 .converter-composer .actions button:hover { background: var(--soft-green); }
 .converter-composer .actions button:active { background: var(--border); transform: none; }
 .converter-composer .actions button[aria-pressed="true"] { background: var(--accent-soft); color: #713b30; }
