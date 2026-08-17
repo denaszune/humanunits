@@ -69,7 +69,7 @@ h1 { margin: .55rem 0 .75rem; max-width: 650px; font-family: var(--font-editoria
 .result-card.invalid { border-color: #713b30; background: #713b30; }
 .result-heading { display: flex; justify-content: space-between; padding: 1rem 1.2rem 0; color: #bcd4ca; font-size: var(--type-eyebrow); font-weight: 700; letter-spacing: .09em; line-height: 1.25; text-transform: uppercase; }
 .result { min-height: 8.5rem; padding: 1rem 1.2rem 1.4rem; display: flex; align-items: baseline; gap: .55rem; }
-.result strong { font-family: var(--font-editorial); font-size: clamp(2.9rem, 11.5vw, 5.75rem); line-height: 1; font-weight: 400; letter-spacing: -.045em; overflow-wrap: anywhere; }
+.result strong { font-family: var(--font-editorial); font-size: clamp(2.8rem, 11.3vw, 5.65rem); line-height: 1; font-weight: 400; letter-spacing: -.045em; overflow-wrap: anywhere; }
 .result > span { color: #d6e7df; font-family: var(--font-interface); font-size: var(--type-result-unit); font-weight: 500; line-height: 1.2; }
 .result .empty-result { align-self: center; color: #f1ddd3; font-size: 1rem; }
 .actions { display: flex; border-top: 1px solid #ffffff26; }
@@ -84,9 +84,9 @@ h1 { margin: .55rem 0 .75rem; max-width: 650px; font-family: var(--font-editoria
 .precision-control button { min-width: 27px; min-height: 27px; padding: 0 .3rem; border: 1px solid #7d928a; border-radius: .35rem; background: transparent; color: inherit; font-size: .68rem; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; cursor: pointer; }
 .precision-control button:hover { background: #ffffff12; }
 .precision-control button.selected { border-color: var(--surface); background: var(--surface); color: var(--ink); }
-.result-card .result strong { font-size: clamp(2.9rem, 12cqw, 5.75rem); }
-.result-card.precision-10 .result strong { font-size: clamp(2.6rem, 11cqw, 5.5rem); }
-.result-card.precision-15 .result strong { font-size: clamp(1.75rem, 9.9cqw, 5.1rem); letter-spacing: -.04em; }
+.result-card .result strong { font-size: clamp(2.8rem, 11.75cqw, 5.65rem); }
+.result-card.precision-10 .result strong { font-size: clamp(2.55rem, 10.8cqw, 5.4rem); }
+.result-card.precision-15 .result strong { font-size: clamp(1.7rem, 9.7cqw, 5rem); letter-spacing: -.04em; }
 .result-card .result { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
 .result-card .result strong { flex: none; overflow-wrap: normal; word-break: normal; }
 .result-card .result > span { flex: none; }
@@ -393,10 +393,10 @@ h1 { color: var(--deep-green); text-wrap: balance; }
 .converter-composer .result-heading span { min-width: 0; overflow-wrap: anywhere; }
 .converter-composer .result-heading span:last-child { text-align: right; }
 .converter-composer .result { min-height: 126px; padding: var(--space-2) var(--space-6) var(--space-6); align-items: center; color: var(--deep-green); }
-.converter-composer .result strong { min-width: 0; max-width: 100%; color: var(--deep-green); font-size: clamp(3.1rem, 9.6vw, 5.5rem); line-height: .95; }
-.converter-composer .result-card .result strong { font-size: clamp(2.9rem, 12cqw, 5.75rem); }
-.converter-composer .result-card.precision-10 .result strong { font-size: clamp(2.6rem, 11cqw, 5.5rem); }
-.converter-composer .result-card.precision-15 .result strong { font-size: clamp(1.75rem, 9.9cqw, 5.1rem); letter-spacing: -.04em; }
+.converter-composer .result strong { min-width: 0; max-width: 100%; color: var(--deep-green); font-size: clamp(3.05rem, 9.4vw, 5.4rem); line-height: .95; }
+.converter-composer .result-card .result strong { font-size: clamp(2.8rem, 11.75cqw, 5.65rem); }
+.converter-composer .result-card.precision-10 .result strong { font-size: clamp(2.55rem, 10.8cqw, 5.4rem); }
+.converter-composer .result-card.precision-15 .result strong { font-size: clamp(1.7rem, 9.7cqw, 5rem); letter-spacing: -.04em; }
 .converter-composer .result > span { color: var(--muted); }
 .converter-composer .result .empty-result { max-width: 42ch; color: var(--muted); font-size: var(--font-size-body); line-height: var(--line-height-body); }
 .converter-composer.invalid .result .empty-result { color: #713b30; }
@@ -417,6 +417,6 @@ h1 { color: var(--deep-green); text-wrap: balance; }
   .converter .input-wrap input { min-height: 62px; padding-left: var(--space-3); }
   .converter-composer .result-heading { padding-inline: var(--space-4); }
   .converter-composer .result { padding-inline: var(--space-4); }
-  .converter-composer .result strong { font-size: clamp(2.65rem, 15.4vw, 4.3rem); }
+  .converter-composer .result strong { font-size: clamp(2.6rem, 15vw, 4.25rem); }
   .converter-composer .actions button { overflow-wrap: anywhere; }
 }

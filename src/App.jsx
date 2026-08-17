@@ -218,6 +218,7 @@ export default function App() {
 
   createEffect(() => {
     resultText();
+    if (page() !== 'converter') return;
     queueMicrotask(fitResult);
   });
 
