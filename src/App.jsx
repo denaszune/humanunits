@@ -1,5 +1,6 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { evaluate, formatValue, supportedUnits } from './conversion.js';
+import { prependPin, quickReusePins, reusePinnedPair } from './pins.js';
 
 const HISTORY_KEY = 'humanunits:history:v1';
 const PINS_KEY = 'humanunits:pins:v1';
@@ -321,18 +322,8 @@ export default function App() {
     save(HISTORY_KEY, next);
   }
 
-  function promotePin(item) {
-    const current = pins();
-    const index = current.findIndex(pin => pin.from === item.from && pin.to === item.to);
-    if (index <= 0) return;
-    const next = [current[index], ...current.slice(0, index), ...current.slice(index + 1)];
-    setPins(next);
-    save(PINS_KEY, next);
-  }
-
   function reusePinnedQuery(item) {
-    promotePin(item);
-    chooseBrowseQuery(item.query);
+    reusePinnedPair(pins(), item, chooseBrowseQuery);
   }
 
   function removeLibraryRecent(queryToRemove) {
@@ -388,7 +379,7 @@ export default function App() {
     if (!value) return;
     const pair = { from: value.from.symbol, to: value.to.symbol, query: symbolPairQuery(value.from, value.to) };
     const exists = pins().some(item => item.from === pair.from && item.to === pair.to);
-    const next = exists ? pins().filter(item => item.from !== pair.from || item.to !== pair.to) : [pair, ...pins()].slice(0, 8);
+    const next = exists ? pins().filter(item => item.from !== pair.from || item.to !== pair.to) : prependPin(pins(), pair);
     setPins(next);
     save(PINS_KEY, next);
   }
@@ -397,7 +388,7 @@ export default function App() {
     const value = conversion();
     return value && pins().some(item => item.from === value.from.symbol && item.to === value.to.symbol);
   });
-  const quickReuse = createMemo(() => pins().slice(0, 3));
+  const quickReuse = createMemo(() => quickReusePins(pins()));
 
   return <div class="app-shell" classList={{ 'convert-shell': page() === 'converter' }}>
     <header class="site-header">

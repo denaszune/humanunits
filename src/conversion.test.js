@@ -1,10 +1,41 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { convert, evaluate, formatNumber, formatValue, parseQuery, supportedPairs, supportedUnits } from './conversion.js';
+import { prependPin, quickReusePins, reusePinnedPair } from './pins.js';
 
 function close(actual, expected, precision = 8) {
   assert.ok(Math.abs(actual - expected) < 10 ** -precision * Math.max(1, Math.abs(expected)), `${actual} is not close to ${expected}`);
 }
+
+describe('pinned-pair ordering', () => {
+  const pins = [
+    { from: 'km', to: 'mi', query: '1 km in mi' },
+    { from: 'kg', to: 'lb', query: '1 kg in lb' },
+    { from: 'C', to: 'F', query: '1 C in F' },
+    { from: 'L', to: 'gal (US)', query: '1 L in gal (US)' },
+  ];
+
+  it('leaves array and persisted order unchanged when a pin is reused', () => {
+    const persisted = JSON.stringify(pins);
+    let selectedQuery;
+    const result = reusePinnedPair(pins, pins[2], query => { selectedQuery = query; });
+
+    assert.equal(result, pins);
+    assert.equal(JSON.stringify(pins), persisted);
+    assert.equal(selectedQuery, pins[2].query);
+  });
+
+  it('prepends a newly added pin', () => {
+    const added = { from: 'm', to: 'ft', query: '1 m in ft' };
+    assert.deepEqual(prependPin(pins, added), [added, ...pins]);
+  });
+
+  it('keeps Quick Reuse stable after selecting a pin', () => {
+    const before = quickReusePins(pins);
+    reusePinnedPair(pins, pins[1], () => {});
+    assert.deepEqual(quickReusePins(pins), before);
+  });
+});
 
 describe('natural-language parser', () => {
   for (const [query, category] of [
