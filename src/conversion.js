@@ -103,10 +103,9 @@ for (const unit of units.filter(unit => ['dBV','dBu','dB SPL'].includes(unit.sym
 const dbm=units.find(u=>u.symbol==='dBm'), dbw=units.find(u=>u.symbol==='dBW');
 Object.assign(dbm,{toBase:v=>v,fromBase:v=>v}); Object.assign(dbw,{toBase:v=>v+30,fromBase:v=>v-30});
 
-// These context-dependent calendar units are discoverable but deliberately do not
-// produce misleading fixed-duration conversions without a start date and calendar.
-add('calendar duration', [['month','calendar month',1],['quarter','calendar quarter',1],['year','calendar year',1],['decade','decade',1],['century','century',1],['millennium','millennium',1]]);
-for (const unit of units.filter(unit => unit.category === 'calendar duration')) unit.conversionGroup = unit.symbol;
+// Calendar units have exact ratios to one another, but deliberately remain
+// separate from fixed-duration days and hours, which require a start date.
+add('calendar duration', [['month','calendar month',1/12],['quarter','calendar quarter',1/4],['year','calendar year',1],['decade','decade',10],['century','century',100],['millennium','millennium',1000]]);
 
 add('temperature difference', [['K Δ','kelvin difference',1,['delta k']],['°C Δ','Celsius difference',1,['delta c']],['°F Δ','Fahrenheit difference',5/9,['delta f']],['°R Δ','Rankine difference',5/9,['delta r']]]);
 
@@ -152,7 +151,7 @@ export function supportedUnits() {
 export function supportedPairs() {
   return supportedUnits().map(group => {
     const pairs = group.units.flatMap(from => group.units.filter(to => to !== from && to.conversionGroup === from.conversionGroup).map(to => ({
-      from, to, query: `1 ${from.query} in ${to.query}`, popular: popularPairKeys.has(`${from.symbol}\0${to.symbol}`)
+      from, to, query: `1 ${from.symbol} in ${to.symbol}`, popular: popularPairKeys.has(`${from.symbol}\0${to.symbol}`)
     }))).map((pair, index) => ({ pair, index })).sort((a, b) => Number(b.pair.popular) - Number(a.pair.popular) || a.index - b.index).map(({ pair }) => pair);
     return { ...group, pairs };
   });
@@ -212,4 +211,3 @@ export function formatValue(value, unit, clockStyle = false) {
   const clock = hours ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}` : `${minutes}:${seconds}`;
   return value < 0 ? `-${clock}` : clock;
 }
-export function pairQuery(from,to,value=1) { return `${value} ${from.name || from.symbol} in ${to.name || to.symbol}`; }

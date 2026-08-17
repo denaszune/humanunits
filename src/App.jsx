@@ -1,11 +1,12 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { evaluate, formatValue, pairQuery, supportedUnits } from './conversion.js';
+import { evaluate, formatValue, supportedUnits } from './conversion.js';
 
 const HISTORY_KEY = 'humanunits:history:v1';
 const PINS_KEY = 'humanunits:pins:v1';
 const examples = ['10 km in miles', '72 f to c', '5 lb to kg'];
 const appRoot = import.meta.env.BASE_PATH === './' ? '/' : import.meta.env.BASE_PATH;
 const licensePath = `${appRoot}license`;
+const symbolPairQuery = (from, to, value = 1) => `${value} ${from.symbol} in ${to.symbol}`;
 
 function AboutPage(props) {
   return <section class="about-page" aria-labelledby="about-title">
@@ -44,8 +45,14 @@ function save(key, value) {
 
 export default function App() {
   const [query, setQuery] = createSignal('');
-  const [recentConversions, setRecentConversions] = createSignal(load(HISTORY_KEY));
-  const [pins, setPins] = createSignal(load(PINS_KEY));
+  const [recentConversions, setRecentConversions] = createSignal(load(HISTORY_KEY).map(entry => {
+    const value = evaluate(entry.query);
+    return value ? { ...entry, query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle)) } : entry;
+  }));
+  const [pins, setPins] = createSignal(load(PINS_KEY).map(item => ({
+    ...item,
+    query: `1 ${item.from} in ${item.to}`
+  })));
   const [copied, setCopied] = createSignal(false);
   const [installPrompt, setInstallPrompt] = createSignal(null);
   const [updateReady, setUpdateReady] = createSignal(false);
@@ -56,7 +63,7 @@ export default function App() {
     const group = catalog.find(item => item.units.some(unit => unit.symbol === fromSymbol) && item.units.some(unit => unit.symbol === toSymbol));
     const from = group?.units.find(unit => unit.symbol === fromSymbol);
     const to = group?.units.find(unit => unit.symbol === toSymbol);
-    return from && to ? { from, to, query: pairQuery(from, to) } : null;
+    return from && to ? { from, to, query: symbolPairQuery(from, to) } : null;
   }).filter(Boolean);
   const [search, setSearch] = createSignal('');
   const [expanded, setExpanded] = createSignal([]);
@@ -138,7 +145,7 @@ export default function App() {
 
   function remember(value = conversion()) {
     if (!value) return;
-    const entry = { query: pairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle)), result: `${formatValue(value.result, value.to, value.clockStyle)} ${value.to.symbol}` };
+    const entry = { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle)), result: `${formatValue(value.result, value.to, value.clockStyle)} ${value.to.symbol}` };
     const next = [entry, ...recentConversions().filter(item => item.query !== entry.query)].slice(0, 8);
     setRecentConversions(next);
     save(HISTORY_KEY, next);
@@ -173,11 +180,12 @@ export default function App() {
     const from = selectedFrom();
     if (!from) {
       setSelectedFrom({ ...unit, category });
+      setSearch('');
       setExpanded(current => current.includes(category) ? current : [...current, category]);
       return;
     }
     if (!isCompatible(unit, category)) return;
-    chooseBrowseQuery(pairQuery(from, unit));
+    chooseBrowseQuery(symbolPairQuery(from, unit));
     setSelectedFrom(null);
     location.hash = '';
   }
@@ -199,7 +207,7 @@ export default function App() {
   function swap() {
     const value = conversion();
     if (!value) return;
-    setQuery(pairQuery(value.to, value.from, formatValue(value.result, value.to, value.clockStyle)));
+    setQuery(symbolPairQuery(value.to, value.from, formatValue(value.result, value.to, value.clockStyle)));
     requestAnimationFrame(() => remember());
   }
 
@@ -215,7 +223,7 @@ export default function App() {
   function togglePin() {
     const value = conversion();
     if (!value) return;
-    const pair = { from: value.from.symbol, to: value.to.symbol, query: pairQuery(value.from, value.to) };
+    const pair = { from: value.from.symbol, to: value.to.symbol, query: symbolPairQuery(value.from, value.to) };
     const exists = pins().some(item => item.from === pair.from && item.to === pair.to);
     const next = exists ? pins().filter(item => item.from !== pair.from || item.to !== pair.to) : [pair, ...pins()].slice(0, 8);
     setPins(next);
