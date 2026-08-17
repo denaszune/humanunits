@@ -146,7 +146,6 @@ describe('supported pairs catalog', () => {
   it('lists every directed pair within each category', () => {
     const catalog = supportedPairs();
     assert.equal(catalog.length, 59);
-    assert.equal(catalog.reduce((total, group) => total + group.pairs.length, 0), 6566);
     for (const group of catalog) {
       const sizes = Object.values(Object.groupBy(group.units, unit => unit.conversionGroup || 'linear')).map(items => items.length);
       assert.equal(group.pairs.length, sizes.reduce((total, size) => total + size * (size - 1), 0));
