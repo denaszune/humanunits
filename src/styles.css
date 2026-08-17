@@ -303,7 +303,7 @@ h1 { color: var(--deep-green); text-wrap: balance; }
     grid-template-columns: repeat(3, minmax(0, 1fr));
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-lg);
-    background: var(--canvas);
+    background: var(--surface);
     box-shadow: 0 8px 28px #123c3424;
   }
   .mobile-primary-nav a {
