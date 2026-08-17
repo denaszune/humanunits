@@ -23,6 +23,12 @@ describe('natural-language parser', () => {
     assert.equal(parseQuery('72 sec/400 m to min/mi')?.from.category, 'pace');
   });
 
+  it('accepts scientific notation, signed values, unicode symbols, and the arrow connector', () => {
+    close(evaluate('-2.5e3 µm → mm')?.result, -2.5);
+    close(evaluate('1 m² to cm2')?.result, 10000);
+    close(evaluate('1 m³ as liters')?.result, 1000);
+  });
+
   for (const query of ['hello', '10 km', '1 kg to miles', 'NaN m to ft', '']) it(`rejects invalid query ${query}`, () => {
     assert.equal(parseQuery(query), null);
   });
@@ -120,5 +126,17 @@ describe('supported pairs catalog', () => {
       assert.ok(group.pairs.every(pair => evaluate(pair.query)));
     }
     assert.equal(catalog.find(group => group.category === 'calendar duration').pairs.length, 30);
+  });
+
+  it('keeps special compatibility groups from becoming ordinary category-wide pairs', () => {
+    const catalog = supportedPairs();
+    const sound = catalog.find(group => group.category === 'sound level');
+    assert.ok(sound.pairs.some(pair => pair.from.symbol === 'dBm' && pair.to.symbol === 'dBW'));
+    assert.ok(!sound.pairs.some(pair => pair.from.symbol === 'dBV' && pair.to.symbol === 'dB SPL'));
+
+    const pace = catalog.find(group => group.category === 'pace');
+    assert.ok(pace.pairs.some(pair => pair.from.symbol === 'min/mi' && pair.to.symbol === 'min/km'));
+    assert.ok(!pace.pairs.some(pair => pair.to.category === 'speed'));
+    close(evaluate('7:00 /mi → mph')?.result, 60 / 7);
   });
 });
