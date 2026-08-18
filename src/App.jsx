@@ -465,7 +465,7 @@ export default function App() {
   return <div class="app-shell" classList={{ 'convert-shell': page() === 'converter', 'dock-suppressed': dockSuppressed() }}>
     <header class="site-header">
       <a class="brand" href={appRoot} onClick={event => handleInternalLink(event, appRoot)} aria-label="Human Units home">
-        <svg class="brand-mark" aria-hidden="true" viewBox="0 0 36 36"><rect width="36" height="36" rx="7"/><path d="M8.5 9v18M8.5 18h8M16.5 9v18M21 9v11.5c0 4.2 2.2 6.5 5.4 6.5s5.1-2.3 5.1-6.5V9M5.5 13h3M5.5 23h3"/></svg>
+        <svg class="brand-mark" aria-hidden="true" viewBox="0 0 128 128"><rect width="128" height="128" rx="24"/><path d="M25 22v84M25 64c11-8 25-8 37 0M62 22v47c0 25 9 37 21 37 13 0 21-12 21-37V22" transform="translate(10.24 10.24) scale(.84)"/></svg>
         <span>Human Units</span>
       </a>
       <div class="header-actions">

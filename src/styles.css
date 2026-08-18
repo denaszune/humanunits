@@ -236,7 +236,7 @@ h2 { font-size: var(--type-section-title); font-weight: 800; letter-spacing: .06
 .brand { gap: var(--space-3); color: var(--ink); font-size: .94rem; font-weight: 720; letter-spacing: -.018em; }
 .brand-mark { width: 36px; height: 36px; flex: none; }
 .brand-mark rect { fill: var(--ink); }
-.brand-mark path { fill: none; stroke: var(--canvas); stroke-width: 2.25; stroke-linecap: square; stroke-linejoin: round; }
+.brand-mark path { fill: none; stroke: var(--canvas); stroke-width: 17; stroke-linecap: butt; stroke-linejoin: round; }
 .site-header nav a { position: relative; border: 0; }
 .site-header nav a::after { content: ''; position: absolute; right: 0; bottom: 0; left: 0; height: 2px; background: var(--accent); transform: scaleX(0); transform-origin: left; transition: transform var(--duration-state) var(--ease); }
 .site-header nav a[aria-current="page"] { border: 0; }
