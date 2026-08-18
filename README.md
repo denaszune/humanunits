@@ -75,7 +75,7 @@ Human Units includes no accounts, advertisements, analytics, tracking, remote fo
 
 ## Offline behavior
 
-The production service worker precaches the built application. After the first successful load, the interface and conversion engine remain available without a network connection.
+The production service worker precaches the built application. After the first successful load, repeat visits start from the cached interface immediately, even without a network connection.
 
 New service-worker versions replace outdated assets and remove obsolete caches after activation. Because service workers require HTTPS or localhost, test offline behavior using:
 

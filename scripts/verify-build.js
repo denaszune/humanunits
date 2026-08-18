@@ -33,8 +33,8 @@ if (!Array.isArray(precache) || precache.includes('./') || !precache.includes('.
   throw new Error('Service worker must precache only the canonical index.html application shell');
 }
 if (!serviceWorker.includes("event.request.mode === 'navigate'") ||
-    !serviceWorker.includes("fetch(event.request).catch(() => caches.match('./index.html'))")) {
-  throw new Error('Service worker must use network-first navigation with an offline index.html fallback');
+    !serviceWorker.includes("caches.match('./index.html').then(cached => cached || fetch(event.request))")) {
+  throw new Error('Service worker must use cache-first navigation with a network fallback');
 }
 for (const url of html.matchAll(/(?:src|href)="([^"]+\.(?:js|css))(?:[?#][^"]*)?"/g)) {
   const assetPath = url[1].slice(base.length);

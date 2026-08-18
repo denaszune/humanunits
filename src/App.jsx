@@ -418,6 +418,10 @@ export default function App() {
     setInstallPrompt(null);
   }
 
+  function update() {
+    dispatchEvent(new Event('humanunits:apply-update'));
+  }
+
   function swap() {
     const value = conversion();
     if (!value) return;
@@ -473,7 +477,10 @@ export default function App() {
         <nav class="utility-nav" aria-label="Utility">
           <a href={`${appRoot}#about`} onClick={event => handleInternalLink(event, `${appRoot}#about`)} aria-current={page() === 'about' ? 'page' : undefined}>About</a>
         </nav>
-        <Show when={installPrompt()}><button class="install-button" type="button" onClick={install}>Install</button></Show>
+        <Show when={updateReady()} fallback={<Show when={installPrompt()}><button class="header-action" type="button" onClick={install}>Install</button></Show>}>
+          <button class="header-action" type="button" onClick={update}>Update</button>
+        </Show>
+        <span class="sr-only" role="status"><Show when={updateReady()}>Update available.</Show></span>
       </div>
     </header>
 
@@ -572,6 +579,5 @@ export default function App() {
         <span>Library</span>
       </a>
     </nav>
-    <Show when={updateReady()}><aside class="update-notice" role="status"><span><strong>Update ready</strong> Refresh to use the latest version.</span><button type="button" onClick={() => dispatchEvent(new Event('humanunits:apply-update'))}>Refresh</button></aside></Show>
   </div>;
 }

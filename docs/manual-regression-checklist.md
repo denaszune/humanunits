@@ -136,7 +136,7 @@ Use browser developer tools to inspect and, in a disposable profile, edit storag
 - [ ] Result changes are announced once through the polite, atomic live region without excessive typing announcements.
 - [ ] Pin and selected-unit controls expose the correct `aria-pressed` value.
 - [ ] Category controls expose the correct `aria-expanded` value.
-- [ ] Browse source selection and update-ready messaging are announced as status changes.
+- [ ] Browse source selection and update availability are announced as status changes.
 - [ ] Search-result counts update through a polite live region.
 - [ ] Remove-history controls have labels identifying the affected query.
 - [ ] Decorative SVGs are hidden from assistive technology.
@@ -170,9 +170,10 @@ Use browser developer tools to inspect and, in a disposable profile, edit storag
 - [ ] After one successful production load, close all app tabs, disable the network, and confirm offline startup.
 - [ ] While offline, Convert, Browse, About, License, history, pins, and real conversion calculations remain usable.
 - [ ] Offline navigation falls back to the application shell rather than a browser error.
-- [ ] Build and serve a changed version; an already controlled client reports `Update ready` when the new worker waits.
-- [ ] The update notice does not force a reload.
-- [ ] Choosing Refresh activates the waiting worker and reloads once after `controllerchange`.
+- [ ] Build and serve a changed version; an already controlled client continues to show the cached version while the new worker installs.
+- [ ] When the new worker waits, the header shows Update instead of Install and does not show a popup.
+- [ ] Choosing Update activates the waiting worker and reloads once after `controllerchange`.
+- [ ] After updating, the header restores Install when installation is available, or shows neither action when already installed.
 - [ ] The new worker removes obsolete `humanunits-*` caches while retaining its current cache.
 - [ ] A service-worker registration failure leaves online conversion usable.
 
