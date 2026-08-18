@@ -117,6 +117,7 @@ export default function App() {
   const [precision, setPrecision] = createSignal(loadPrecision());
   const [installPrompt, setInstallPrompt] = createSignal(null);
   const [updateReady, setUpdateReady] = createSignal(false);
+  const [dockSuppressed, setDockSuppressed] = createSignal(false);
   const catalog = supportedUnits();
   const unitCount = catalog.reduce((total, group) => total + group.units.length, 0);
   const popularPairSymbols = [['km', 'mi'], ['°C', '°F'], ['kg', 'lb'], ['cm', 'in'], ['L', 'gal (US)'], ['min/mi', 'min/km']];
@@ -233,6 +234,47 @@ export default function App() {
     queueMicrotask(() => {
       observeResultSize();
       fitResult();
+    });
+  });
+  onMount(() => {
+    const viewport = window.visualViewport;
+    const textInputSelector = 'input:not([type]), input[type="text"], input[type="search"]';
+    let viewportHeight = viewport?.height ?? innerHeight;
+    let restoreTimer;
+
+    const cancelRestore = () => {
+      clearTimeout(restoreTimer);
+      restoreTimer = undefined;
+    };
+    const restoreDock = () => {
+      if (document.activeElement?.matches(textInputSelector)) return;
+      cancelRestore();
+      setDockSuppressed(false);
+    };
+    const restoreWhenViewportRecovers = () => {
+      if (!viewport || viewport.height >= viewportHeight - 40) restoreDock();
+    };
+    const handleFocusIn = event => {
+      if (!event.target.matches?.(textInputSelector)) return;
+      cancelRestore();
+      if (!dockSuppressed()) viewportHeight = viewport?.height ?? innerHeight;
+      setDockSuppressed(true);
+    };
+    const handleFocusOut = event => {
+      if (!event.target.matches?.(textInputSelector)) return;
+      if (event.relatedTarget?.matches?.(textInputSelector)) return;
+      queueMicrotask(restoreWhenViewportRecovers);
+      restoreTimer = setTimeout(restoreDock, 800);
+    };
+
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
+    viewport?.addEventListener('resize', restoreWhenViewportRecovers);
+    onCleanup(() => {
+      cancelRestore();
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
+      viewport?.removeEventListener('resize', restoreWhenViewportRecovers);
     });
   });
 
@@ -399,7 +441,7 @@ export default function App() {
   });
   const quickReuse = createMemo(() => quickReusePins(pins()));
 
-  return <div class="app-shell" classList={{ 'convert-shell': page() === 'converter' }}>
+  return <div class="app-shell" classList={{ 'convert-shell': page() === 'converter', 'dock-suppressed': dockSuppressed() }}>
     <header class="site-header">
       <a class="brand" href={appRoot} onClick={event => handleInternalLink(event, appRoot)} aria-label="Human Units home">
         <svg class="brand-mark" aria-hidden="true" viewBox="0 0 36 36"><rect width="36" height="36" rx="7"/><path d="M8.5 9v18M8.5 18h8M16.5 9v18M21 9v11.5c0 4.2 2.2 6.5 5.4 6.5s5.1-2.3 5.1-6.5V9M5.5 13h3M5.5 23h3"/></svg>

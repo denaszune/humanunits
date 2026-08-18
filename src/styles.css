@@ -333,6 +333,8 @@ h1 { color: var(--deep-green); text-wrap: balance; }
   .mobile-primary-nav a[aria-current="page"]::before { opacity: 1; transform: translateX(-50%) scaleX(1); }
   .mobile-primary-nav svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   .update-notice { bottom: calc(82px + env(safe-area-inset-bottom)); }
+  .app-shell.dock-suppressed { padding-bottom: 0; }
+  .app-shell.dock-suppressed .mobile-primary-nav { display: none; }
 }
 
 /* Unified converter composition. */
@@ -387,19 +389,21 @@ h1 { color: var(--deep-green); text-wrap: balance; }
   color: var(--text);
   box-shadow: none;
 }
-.converter-composer .result-card.invalid { border-color: color-mix(in srgb, var(--accent) 28%, var(--border)); background: var(--accent-soft); }
-.converter-composer .result-heading { min-width: 0; padding: var(--space-4) var(--space-6) 0; color: var(--muted); }
+.converter-composer .result-card.invalid { border-color: color-mix(in srgb, var(--accent) 28%, var(--border)); background: transparent; }
+.converter-composer .result-heading { min-width: 0; padding: var(--space-4) var(--space-6) 0; background: color-mix(in srgb, var(--soft-green) 40%, var(--surface)); color: var(--muted); }
 .converter-composer .result-heading span { min-width: 0; overflow-wrap: anywhere; }
 .converter-composer .result-heading span:last-child { text-align: right; }
-.converter-composer .result { min-height: 126px; padding: var(--space-2) var(--space-6) var(--space-6); align-items: center; color: var(--deep-green); }
+.converter-composer .result { min-height: 126px; padding: var(--space-2) var(--space-6) var(--space-6); align-items: center; background: color-mix(in srgb, var(--soft-green) 40%, var(--surface)); color: var(--deep-green); }
 .converter-composer .result strong { min-width: 0; max-width: 100%; color: var(--deep-green); font-size: clamp(3.05rem, 9.4vw, 5.4rem); line-height: .95; }
 .converter-composer .result-card .result strong { font-size: clamp(2.8rem, 11.75cqw, 5.65rem); }
 .converter-composer .result-card.precision-10 .result strong { font-size: clamp(2.55rem, 10.8cqw, 5.4rem); }
 .converter-composer .result-card.precision-15 .result strong { font-size: clamp(1.7rem, 9.7cqw, 5rem); letter-spacing: -.04em; }
 .converter-composer .result > span { color: var(--muted); }
 .converter-composer .result .empty-result { max-width: 42ch; color: var(--muted); font-size: var(--font-size-body); line-height: var(--line-height-body); }
+.converter-composer.invalid .result-heading,
+.converter-composer.invalid .result { background: var(--accent-soft); }
 .converter-composer.invalid .result .empty-result { color: #713b30; }
-.converter-composer .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--border); }
+.converter-composer .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--border); background: var(--surface); }
 .converter-composer .actions button { min-width: 0; min-height: 52px; padding: var(--space-2); border-right: 1px solid var(--border); background: transparent; color: var(--ink); }
 .converter-composer .actions button:last-child { border-right: 0; }
 .converter-composer .actions button:hover { background: var(--soft-green); }
@@ -413,6 +417,7 @@ h1 { color: var(--deep-green); text-wrap: balance; }
   .convert-main { padding-top: var(--space-4); }
   .converter-composer { min-height: 382px; border-radius: var(--radius-lg); }
   .converter { padding: var(--space-4) var(--space-4) 0; }
+  .converter-heading label { font-size: clamp(1rem, 5vw, 1.3rem); white-space: nowrap; }
   .converter .input-wrap input { min-height: 62px; padding-left: var(--space-3); }
   .converter-composer .result-heading { padding-inline: var(--space-4); }
   .converter-composer .result { padding-inline: var(--space-4); }
