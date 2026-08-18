@@ -13,12 +13,15 @@ const symbolPairQuery = (from, to, value = 1) => `${value} ${from.symbol} in ${t
 function AboutPage(props) {
   return <section class="about-page" aria-labelledby="about-title">
     <h1 id="about-title">About Human Units</h1>
-    <section><h2>What it is</h2><p>Human Units is a fast unit converter designed around natural-language input.</p></section>
-    <section><h2>Privacy</h2><p>It works offline, requires no account, and includes no tracking. Recent conversions and pinned pairs are stored only in local storage on this device.</p></section>
-    <section><h2>Conversion coverage</h2><p>Explore many everyday, scientific, computing, and specialist measurement categories. Where ambiguity matters, the catalog distinguishes units such as US and Imperial measurements.</p></section>
-    <section><h2>Accuracy</h2><p>Most ordinary conversions are deterministic. Quantities such as temperature, fuel economy, and calendar durations receive the special handling their definitions require.</p></section>
-    <section><h2>Open source</h2><p>Human Units is open-source software provided under the <a href={licensePath} onClick={event => props.onNavigate(event, licensePath)}>MIT License</a>.</p></section>
-    <section><h2>Install</h2><p>You can install Human Units as a PWA when your browser and device support it. The Install action appears in the header when installation is available.</p></section>
+    <p class="about-intro">A fast, private unit converter that understands natural language.</p>
+    <section><h2>Private by design</h2><p>Human Units works offline, requires no account, and includes no tracking or analytics. Recent conversions and pinned pairs stay in your browser’s local storage on this device.</p></section>
+    <section><h2>Coverage and accuracy</h2><p>Convert everyday, scientific, computing, and specialist units—including distinct US and Imperial measurements where their definitions differ.</p><p>Conversions are calculated locally using explicit unit definitions. Temperature, fuel economy, calendar durations, and other special cases use dedicated conversion logic.</p></section>
+    <section class="open-source-section"><h2>Open source</h2><p>Human Units is open source and available under the MIT License.</p><div class="open-source-links">
+      <a href="https://github.com/denaszune/humanunits"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 2.75a9.5 9.5 0 0 0-3 18.51c.48.09.65-.2.65-.46v-1.67c-2.67.58-3.23-1.13-3.23-1.13-.43-1.11-1.06-1.4-1.06-1.4-.87-.6.07-.59.07-.59.96.07 1.47.99 1.47.99.86 1.47 2.25 1.05 2.8.8.09-.62.34-1.05.61-1.29-2.13-.24-4.37-1.07-4.37-4.7 0-1.04.37-1.89.98-2.56-.1-.24-.43-1.21.09-2.52 0 0 .8-.26 2.61.98A9.1 9.1 0 0 1 12 7.43a9 9 0 0 1 2.38.32c1.81-1.24 2.61-.98 2.61-.98.52 1.31.19 2.28.09 2.52.61.67.98 1.52.98 2.56 0 3.64-2.24 4.45-4.38 4.69.35.3.65.88.65 1.78v2.48c0 .26.18.56.66.46A9.5 9.5 0 0 0 12 2.75Z"/></svg>GitHub</a>
+      <span aria-hidden="true">·</span>
+      <a href={licensePath} onClick={event => props.onNavigate(event, licensePath)}>License</a>
+    </div></section>
+    <section><h2>Install</h2><p>Install Human Units for quick access and an app-like experience. When installation is supported, Install appears in the header.</p></section>
   </section>;
 }
 

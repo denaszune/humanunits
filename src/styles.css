@@ -208,7 +208,13 @@ h2 { font-size: var(--type-section-title); font-weight: 800; letter-spacing: .06
 .about-page section:first-of-type { border-top: 0; }
 .about-page h2 { margin: 0 0 .4rem; }
 .about-page p { max-width: 65ch; margin: 0; color: #526b64; line-height: 1.65; }
+.about-page .about-intro { margin-bottom: var(--space-4); color: var(--text); font-size: var(--font-size-lg); }
+.about-page section p + p { margin-top: var(--space-2); }
 .about-page a { color: inherit; text-underline-offset: .18em; }
+.open-source-links { margin-top: var(--space-2); display: flex; align-items: center; gap: var(--space-3); }
+.open-source-links > span { color: var(--border-strong); }
+.open-source-links a { min-height: var(--control-height); display: inline-flex; align-items: center; gap: var(--space-2); color: #315f53; font-size: var(--font-size-sm); font-weight: 750; }
+.open-source-links svg { width: 18px; height: 18px; fill: currentColor; }
 .license-page h1 { margin-bottom: .5rem; font-size: clamp(2.2rem, 6vw, 3.75rem); }
 .license-copyright { margin: 0 0 2rem; color: #526b64; font-weight: 700; }
 .license-text { padding-top: .5rem; border-top: 1px solid var(--border); }
