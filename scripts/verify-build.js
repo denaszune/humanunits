@@ -5,7 +5,23 @@ const root = join(process.cwd(), 'dist');
 const base = process.env.BASE_PATH || './';
 const html = await readFile(join(root, 'index.html'), 'utf8');
 
-for (const asset of ['manifest.webmanifest', 'icon.323fef38.svg']) {
+const htmlAssets = [
+  'manifest.webmanifest',
+  'icon-any.323fef38.svg',
+  'favicon-32.42bba446.png',
+  'apple-touch-180.72eade88.png',
+];
+const manifestAssets = [
+  'icon-any-192.bf511c85.png',
+  'icon-any-512.fa6c07c1.png',
+  'icon-any.323fef38.svg',
+  'icon-maskable-192.73ac1b16.png',
+  'icon-maskable-512.c93087a1.png',
+  'icon-maskable.f58926ff.svg',
+  'icon-monochrome.25ecd6ba.svg',
+];
+
+for (const asset of htmlAssets) {
   // Rsbuild normalizes "./" away for hand-authored HTML tags; both forms are
   // document-relative and therefore remain portable to a project subpath.
   const expectedUrl = `${base === './' ? '' : base}${asset}`;
@@ -13,6 +29,19 @@ for (const asset of ['manifest.webmanifest', 'icon.323fef38.svg']) {
     throw new Error(`Built HTML does not reference ${expectedUrl}`);
   }
   await access(join(root, asset));
+}
+
+const manifest = JSON.parse(await readFile(join(root, 'manifest.webmanifest'), 'utf8'));
+for (const asset of manifestAssets) {
+  if (!manifest.icons?.some(icon => icon.src === asset)) {
+    throw new Error(`Built manifest does not reference ${asset}`);
+  }
+  await access(join(root, asset));
+}
+for (const purpose of ['any', 'maskable', 'monochrome']) {
+  if (!manifest.icons.some(icon => icon.purpose?.split(/\s+/).includes(purpose))) {
+    throw new Error(`Built manifest does not provide a ${purpose} icon`);
+  }
 }
 
 for (const pattern of [
