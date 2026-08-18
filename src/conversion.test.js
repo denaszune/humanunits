@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { convert, evaluate, formatNumber, formatValue, parseQuery, supportedPairs, supportedUnits } from './conversion.js';
-import { prependPin, quickReusePins, reusePinnedPair } from './pins.js';
+import { movePin, prependPin, quickReusePins, reusePinnedPair } from './pins.js';
 
 function close(actual, expected, precision = 8) {
   assert.ok(Math.abs(actual - expected) < 10 ** -precision * Math.max(1, Math.abs(expected)), `${actual} is not close to ${expected}`);
@@ -34,6 +34,25 @@ describe('pinned-pair ordering', () => {
     const before = quickReusePins(pins);
     reusePinnedPair(pins, pins[1], () => {});
     assert.deepEqual(quickReusePins(pins), before);
+  });
+
+  it('shows only the first three pins in Quick Reuse', () => {
+    assert.deepEqual(quickReusePins(pins), pins.slice(0, 3));
+  });
+
+  it('moves pins up and down without mutating the persisted order', () => {
+    const persisted = JSON.stringify(pins);
+    const movedUp = movePin(pins, 2, -1);
+    const movedDown = movePin(movedUp, 1, 1);
+
+    assert.deepEqual(movedUp, [pins[0], pins[2], pins[1], pins[3]]);
+    assert.deepEqual(movedDown, pins);
+    assert.equal(JSON.stringify(pins), persisted);
+  });
+
+  it('ignores moves beyond either end of the list', () => {
+    assert.equal(movePin(pins, 0, -1), pins);
+    assert.equal(movePin(pins, pins.length - 1, 1), pins);
   });
 });
 

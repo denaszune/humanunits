@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { evaluate, formatValue, supportedUnits } from './conversion.js';
-import { prependPin, quickReusePins, reusePinnedPair } from './pins.js';
+import { movePin, prependPin, quickReusePins, reusePinnedPair } from './pins.js';
 
 const HISTORY_KEY = 'humanunits:history:v1';
 const PINS_KEY = 'humanunits:pins:v1';
@@ -36,10 +36,9 @@ function LicensePage() {
 
 function LibraryPage(props) {
   return <section class="library-page" aria-labelledby="library-title">
-    <header class="library-heading">
-      <p class="eyebrow">Your conversions</p>
+    <header class="secondary-page-heading">
       <h1 id="library-title">Library</h1>
-      <p>Pinned pairs and recent conversions are stored on this device.</p>
+      <p>Saved on this device.</p>
     </header>
 
     <div class="library-grid">
@@ -49,14 +48,21 @@ function LibraryPage(props) {
           <span class="library-count" aria-label={`${props.pins.length} of 8 pinned pairs`}>{props.pins.length} / 8</span>
         </div>
         <Show when={props.pins.length} fallback={<p class="library-empty">Pin a conversion pair to keep it close at hand.</p>}>
-          <ul class="library-list"><For each={props.pins}>{item => <li class="library-item">
+          <ul class="library-list"><For each={props.pins}>{(item, index) => <li class="library-item library-pin-item">
             <button class="library-reuse" type="button" onClick={() => props.onReusePin(item)} aria-label={`Convert ${item.from} to ${item.to}`}>
               <span class="library-pair">{item.from} <span aria-hidden="true">→</span> {item.to}</span>
-              <small>Convert</small>
             </button>
-            <button class="library-remove" type="button" onClick={() => props.onUnpin(item.from, item.to)} aria-label={`Unpin ${item.from} to ${item.to}`} title="Unpin pair">
-              <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 4 8 8m0-8-8 8"/></svg>
-            </button>
+            <div class="library-pin-actions">
+              <button class="library-order" type="button" onClick={() => props.onMovePin(index(), -1)} disabled={index() === 0} aria-label={`Move ${item.from} to ${item.to} up`} title="Move up">
+                <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m3.5 10 4.5-4.5 4.5 4.5"/></svg>
+              </button>
+              <button class="library-order" type="button" onClick={() => props.onMovePin(index(), 1)} disabled={index() === props.pins.length - 1} aria-label={`Move ${item.from} to ${item.to} down`} title="Move down">
+                <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m3.5 6 4.5 4.5L12.5 6"/></svg>
+              </button>
+              <button class="library-remove" type="button" onClick={() => props.onUnpin(item.from, item.to)} aria-label={`Unpin ${item.from} to ${item.to}`} title="Unpin pair">
+                <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 4 8 8m0-8-8 8"/></svg>
+              </button>
+            </div>
           </li>}</For></ul>
         </Show>
       </section>
@@ -389,6 +395,14 @@ export default function App() {
     save(PINS_KEY, next);
   }
 
+  function reorderLibraryPin(index, direction) {
+    const current = pins();
+    const next = movePin(current, index, direction);
+    if (next === current) return;
+    setPins(next);
+    save(PINS_KEY, next);
+  }
+
   function clearLibraryRecent() {
     setRecentConversions([]);
     save(HISTORY_KEY, []);
@@ -461,14 +475,14 @@ export default function App() {
     </header>
 
     <main classList={{ 'convert-main': page() === 'converter' }}>
-      <Show when={page() === 'converter'} fallback={<Show when={page() === 'pairs'} fallback={<Show when={page() === 'library'} fallback={<Show when={page() === 'about'} fallback={<LicensePage />}><AboutPage onNavigate={handleInternalLink} /></Show>}><LibraryPage pins={pins()} recents={recentConversions()} onReuse={chooseBrowseQuery} onReusePin={reusePinnedQuery} onUnpin={removeLibraryPin} onRemoveRecent={removeLibraryRecent} onClear={clearLibraryRecent} /></Show>}>
+      <Show when={page() === 'converter'} fallback={<Show when={page() === 'pairs'} fallback={<Show when={page() === 'library'} fallback={<Show when={page() === 'about'} fallback={<LicensePage />}><AboutPage onNavigate={handleInternalLink} /></Show>}><LibraryPage pins={pins()} recents={recentConversions()} onReuse={chooseBrowseQuery} onReusePin={reusePinnedQuery} onMovePin={reorderLibraryPin} onUnpin={removeLibraryPin} onRemoveRecent={removeLibraryRecent} onClear={clearLibraryRecent} /></Show>}>
         <section class="browse-page" aria-labelledby="browse-title">
-          <div class="browse-heading">
-            <div><h1 id="browse-title">Browse supported units</h1><p>Explore the units and measurement categories supported by Human Units.</p></div>
-            <strong>{unitCount} units across {catalog.length} categories</strong>
-          </div>
+          <header class="secondary-page-heading">
+            <h1 id="browse-title">Browse units</h1>
+            <p>{unitCount} units across {catalog.length} categories</p>
+          </header>
 
-          <div class="browse-search"><label for="unit-search">Search units or categories</label><div class="browse-search-field"><input id="unit-search" type="search" value={search()} onInput={event => setSearch(event.currentTarget.value)} placeholder="Search units or categories…" autocomplete="off" /><Show when={search()}><button class="clear-search" type="button" onClick={() => setSearch('')} aria-label="Clear unit search"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="m5 5 10 10m0-10L5 15"/></svg></button></Show></div></div>
+          <div class="browse-search"><label for="unit-search">Search units or categories</label><div class="browse-search-field"><input id="unit-search" type="search" value={search()} onInput={event => setSearch(event.currentTarget.value)} placeholder="Search…" autocomplete="off" /><Show when={search()}><button class="clear-search" type="button" onClick={() => setSearch('')} aria-label="Clear unit search"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="m5 5 10 10m0-10L5 15"/></svg></button></Show></div></div>
           <Show when={search().trim()}>
             <section class="search-results" aria-labelledby="search-results-title">
               <div class="browse-section-heading"><h2 id="search-results-title">Search results</h2><span aria-live="polite">{searchResults().length} units</span></div>
@@ -535,7 +549,6 @@ export default function App() {
           </div>
           <div class="quick-reuse-grid"><For each={quickReuse()}>{item => <button type="button" onClick={() => reusePinnedQuery(item)} aria-label={`Reuse pinned conversion ${item.from} to ${item.to}`}>
             <strong>{item.from} <span aria-hidden="true">→</span> {item.to}</strong>
-            <small>Pinned pair</small>
           </button>}</For></div>
         </section>
       </Show>
