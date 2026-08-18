@@ -5,7 +5,7 @@ const root = join(process.cwd(), 'dist');
 const base = process.env.BASE_PATH || './';
 const html = await readFile(join(root, 'index.html'), 'utf8');
 
-for (const asset of ['manifest.webmanifest', 'icon.svg']) {
+for (const asset of ['manifest.webmanifest', 'icon.323fef38.svg']) {
   // Rsbuild normalizes "./" away for hand-authored HTML tags; both forms are
   // document-relative and therefore remain portable to a project subpath.
   const expectedUrl = `${base === './' ? '' : base}${asset}`;

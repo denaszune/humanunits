@@ -26,7 +26,7 @@ export default defineConfig({
     },
     tags: [
       { tag: 'link', attrs: { rel: 'manifest', href: 'manifest.webmanifest' }, head: true },
-      { tag: 'link', attrs: { rel: 'icon', href: 'icon.svg', type: 'image/svg+xml' }, head: true },
+      { tag: 'link', attrs: { rel: 'icon', href: 'icon.323fef38.svg', type: 'image/svg+xml' }, head: true },
     ],
   },
   output: {
