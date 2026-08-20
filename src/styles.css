@@ -288,7 +288,7 @@ h1 { color: var(--deep-green); text-wrap: balance; }
 
 /* Responsive application shell. */
 @media (max-width: 640px) {
-  .app-shell { padding-bottom: calc(82px + env(safe-area-inset-bottom)); }
+  .app-shell { padding-bottom: calc(82px + env(safe-area-inset-bottom)); transition: padding-bottom var(--motion-standard) var(--ease-standard); }
   .site-header { min-height: 64px; padding: var(--space-2) var(--space-4); gap: var(--space-2); }
   .brand { gap: var(--space-2); }
   .brand-mark { width: 32px; height: 32px; }
@@ -311,6 +311,10 @@ h1 { color: var(--deep-green); text-wrap: balance; }
     border-radius: var(--radius-lg);
     background: var(--surface);
     box-shadow: 0 8px 28px #123c3424;
+    transform: translateY(0);
+    opacity: 1;
+    transition: transform var(--motion-standard) var(--ease-standard), opacity var(--motion-standard) var(--ease-standard);
+    will-change: transform, opacity;
   }
   .mobile-primary-nav a {
     position: relative;
@@ -333,9 +337,30 @@ h1 { color: var(--deep-green); text-wrap: balance; }
   .mobile-primary-nav a[aria-current="page"] { color: var(--ink); font-weight: 750; }
   .mobile-primary-nav a[aria-current="page"]::before { opacity: 1; transform: translateX(-50%) scaleX(1); }
   .mobile-primary-nav svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .site-header {
+    max-height: 80px;
+    min-height: 0;
+    overflow: hidden;
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
+    border-bottom-width: 1px;
+    opacity: 1;
+    transition: max-height var(--motion-standard) var(--ease-standard), padding-top var(--motion-standard) var(--ease-standard), padding-bottom var(--motion-standard) var(--ease-standard), border-bottom-width var(--motion-standard) var(--ease-standard), opacity var(--motion-standard) var(--ease-standard);
+  }
   .app-shell.dock-suppressed { padding-bottom: 0; }
-  .app-shell.dock-suppressed .site-header { display: none; }
-  .app-shell.dock-suppressed .mobile-primary-nav { display: none; }
+  .app-shell.dock-suppressed .site-header {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-bottom-width: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .app-shell.dock-suppressed .mobile-primary-nav {
+    transform: translateY(120%);
+    opacity: 0;
+    pointer-events: none;
+  }
 }
 
 /* Unified converter composition. */

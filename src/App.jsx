@@ -13,6 +13,32 @@ const formattedResult = (value, precision) => {
   const formatted = formatValue(value.result, value.to, value.clockStyle, precision);
   return value.to.formatIncludesUnit ? formatted : `${formatted} ${value.to.symbol}`;
 };
+const scrollToTop = (smooth = true, scroller) => {
+  const behavior = smooth && !matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto';
+  const options = { top: 0, behavior };
+  scroller?.scrollTo(options);
+  const rootScroller = document.scrollingElement || document.documentElement;
+  if (rootScroller !== scroller) rootScroller.scrollTo(options);
+};
+const scrollToTopThen = run => {
+  const element = document.scrollingElement || document.documentElement;
+  const distance = element?.scrollTop ?? 0;
+  if (distance <= 0 || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    run();
+    return;
+  }
+  element.scrollTo({ top: 0, behavior: 'smooth' });
+  const start = performance.now();
+  const deadline = start + Math.min(1200, 300 + distance / 2);
+  const tick = now => {
+    if (element.scrollTop <= 0 || now >= deadline) {
+      run();
+      return;
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+};
 
 function AboutPage(props) {
   return <section class="about-page" aria-labelledby="about-title">
@@ -149,6 +175,7 @@ export default function App() {
   let resultFitFrame;
   let resultObserver;
   let observedResult;
+  let quickReuseRef;
   let queryDirty = false;
   const titleCase = text => text.replace(/(^|\s)\S/g, letter => letter.toUpperCase());
   const categorySections = [
@@ -170,14 +197,23 @@ export default function App() {
     return catalog.flatMap(group => group.units.filter(unit => isCompatible(unit, group.category)).map(unit => ({ ...unit, category: group.category })));
   });
   const pageFromLocation = () => location.pathname.replace(/\/$/, '').endsWith('/license') ? 'license' : location.hash === '#pairs' ? 'pairs' : location.hash === '#library' ? 'library' : location.hash === '#about' ? 'about' : 'converter';
+  const pageFromUrl = url => url.endsWith('/license') ? 'license' : url.includes('#pairs') ? 'pairs' : url.includes('#library') ? 'library' : url.includes('#about') ? 'about' : 'converter';
   const [page, setPage] = createSignal(pageFromLocation());
   const handleLocationChange = () => setPage(pageFromLocation());
   const handleInternalLink = (event, url) => {
     if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    window.history.pushState(null, '', url);
-    handleLocationChange();
-    scrollTo({ top: 0, behavior: 'auto' });
+    const samePage = page() === pageFromUrl(url);
+    const navigate = () => {
+      window.history.pushState(null, '', url);
+      handleLocationChange();
+    };
+    const finish = () => {
+      navigate();
+      requestAnimationFrame(() => scrollToTop(true, quickReuseRef));
+    };
+    if (samePage) finish();
+    else scrollToTopThen(finish);
   };
   const handleHashChange = handleLocationChange;
   addEventListener('hashchange', handleHashChange);
@@ -259,13 +295,13 @@ export default function App() {
       clearTimeout(restoreTimer);
       restoreTimer = undefined;
     };
-    const restoreDock = () => {
-      if (document.activeElement?.matches(textInputSelector)) return;
+    const restoreDock = (force = false) => {
+      if (!force && document.activeElement?.matches(textInputSelector)) return;
       cancelRestore();
       setDockSuppressed(false);
     };
     const restoreWhenViewportRecovers = () => {
-      if (!viewport || viewport.height >= viewportHeight - 40) restoreDock();
+      if (!viewport || viewport.height >= viewportHeight - 40) restoreDock(true);
     };
     const handleFocusIn = event => {
       if (!event.target.matches?.(textInputSelector)) return;
@@ -328,6 +364,7 @@ export default function App() {
   function submit(event) {
     event.preventDefault();
     remember();
+    conversionInput?.blur();
   }
 
   function clearQuery() {
@@ -350,11 +387,15 @@ export default function App() {
     const amount = text.match(/^[+-]?(?:(?:\d+(?::\d+)+(?:\.\d+)?)|(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)/i);
     setBrowseSelection(amount ? { query: text, start: amount.index, end: amount[0].length } : null);
     chooseQuery(text);
-    if (page() !== 'converter') {
-      window.history.pushState(null, '', appRoot);
-      handleLocationChange();
-    }
-    scrollTo({ top: 0, behavior: 'auto' });
+    const go = () => {
+      if (page() !== 'converter') {
+        window.history.pushState(null, '', appRoot);
+        handleLocationChange();
+      }
+      queueMicrotask(() => scrollToTop(true, quickReuseRef));
+    };
+    if (page() !== 'converter') scrollToTopThen(go);
+    else go();
   }
 
   function toggleCategory(category) {
@@ -372,6 +413,7 @@ export default function App() {
       setSelectedFrom({ ...unit, category });
       setSearch('');
       setExpanded([category]);
+      scrollToTop();
       return;
     }
     if (!isCompatible(unit, category)) return;
@@ -526,7 +568,7 @@ export default function App() {
             <div class="converter-heading"><label for="conversion-input">What would you like to convert?</label></div>
             <div class="input-wrap">
               <input ref={conversionInput} id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); queryDirty = true; }} onBlur={() => { if (queryDirty) remember(); }} onKeyDown={event => { if (event.key === 'Escape' && query()) { event.preventDefault(); clearQuery(); } }}
-                inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="10 km in miles" aria-describedby="input-hint" />
+                inputmode="text" enterkeyhint="done" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="10 km in miles" aria-describedby="input-hint" />
               <button class="clear-query" type="button" onClick={clearQuery} disabled={!query()} aria-label="Clear conversion input">
                 <svg aria-hidden="true" viewBox="0 0 20 20"><path d="m5 5 10 10m0-10L5 15"/></svg>
               </button>
@@ -556,7 +598,7 @@ export default function App() {
       </section>
 
       <Show when={quickReuse().length}>
-        <section class="quick-reuse" aria-labelledby="quick-reuse-title">
+        <section ref={quickReuseRef} class="quick-reuse" aria-labelledby="quick-reuse-title">
           <div class="quick-reuse-heading">
             <h2 id="quick-reuse-title">Quick Reuse</h2>
             <a href={`${appRoot}#library`} onClick={event => handleInternalLink(event, `${appRoot}#library`)}>View library</a>
