@@ -27,8 +27,8 @@ export default defineConfig({
     tags: [
       { tag: 'link', attrs: { rel: 'manifest', href: 'manifest.webmanifest' }, head: true },
       { tag: 'link', attrs: { rel: 'icon', href: 'icon-any.323fef38.svg', type: 'image/svg+xml' }, head: true },
-      { tag: 'link', attrs: { rel: 'icon', href: 'favicon-32.42bba446.png', type: 'image/png', sizes: '32x32' }, head: true },
-      { tag: 'link', attrs: { rel: 'apple-touch-icon', href: 'apple-touch-180.72eade88.png', sizes: '180x180' }, head: true },
+      { tag: 'link', attrs: { rel: 'icon', href: 'favicon-32.b4790ade.png', type: 'image/png', sizes: '32x32' }, head: true },
+      { tag: 'link', attrs: { rel: 'apple-touch-icon', href: 'apple-touch-180.625da17a.png', sizes: '180x180' }, head: true },
     ],
   },
   output: {

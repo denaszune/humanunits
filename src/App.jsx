@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { evaluate, formatValue, supportedUnits } from './conversion.js';
+import { evaluate, formatValue, pairQuery, supportedUnits } from './conversion.js';
 import { movePin, prependPin, quickReusePins, reusePinnedPair } from './pins.js';
 
 const HISTORY_KEY = 'humanunits:history:v1';
@@ -8,7 +8,11 @@ const PRECISION_KEY = 'humanunits:precision:v1';
 const examples = ['10 km in miles', '72 f to c', '5 lb to kg'];
 const appRoot = import.meta.env.BASE_PATH === './' ? '/' : import.meta.env.BASE_PATH;
 const licensePath = `${appRoot}license`;
-const symbolPairQuery = (from, to, value = 1) => `${value} ${from.symbol} in ${to.symbol}`;
+const symbolPairQuery = (from, to, value) => pairQuery(from, to, value);
+const formattedResult = (value, precision) => {
+  const formatted = formatValue(value.result, value.to, value.clockStyle, precision);
+  return value.to.formatIncludesUnit ? formatted : `${formatted} ${value.to.symbol}`;
+};
 
 function AboutPage(props) {
   return <section class="about-page" aria-labelledby="about-title">
@@ -120,7 +124,7 @@ export default function App() {
   }));
   const [pins, setPins] = createSignal(load(PINS_KEY).map(item => ({
     ...item,
-    query: `1 ${item.from} in ${item.to}`
+    query: symbolPairQuery(item.from, item.to)
   })));
   const [copied, setCopied] = createSignal(false);
   const [precision, setPrecision] = createSignal(loadPrecision());
@@ -202,7 +206,7 @@ export default function App() {
   const conversion = createMemo(() => evaluate(query()));
   const resultText = createMemo(() => {
     const value = conversion();
-    return value ? `${formatValue(value.result, value.to, value.clockStyle, precision())} ${value.to.symbol}` : '';
+    return value ? formattedResult(value, precision()) : '';
   });
 
   function fitResult() {
@@ -210,23 +214,23 @@ export default function App() {
     resultFitFrame = requestAnimationFrame(() => {
       const number = resultDisplay?.querySelector('strong');
       const unit = resultDisplay?.querySelector(':scope > span:not(.empty-result)');
-      if (!number || !unit) return;
+      if (!number) return;
 
       number.style.fontSize = '';
-      unit.style.fontSize = '';
+      if (unit) unit.style.fontSize = '';
       const styles = getComputedStyle(resultDisplay);
       const available = resultDisplay.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
       const gap = parseFloat(styles.columnGap || styles.gap) || 0;
       const numberSize = parseFloat(getComputedStyle(number).fontSize);
-      const unitSize = parseFloat(getComputedStyle(unit).fontSize);
+      const unitSize = unit ? parseFloat(getComputedStyle(unit).fontSize) : 0;
       const numberWidth = Math.max(number.getBoundingClientRect().width, number.scrollWidth);
-      const unitWidth = Math.max(unit.getBoundingClientRect().width, unit.scrollWidth);
-      const required = numberWidth + unitWidth + gap;
+      const unitWidth = unit ? Math.max(unit.getBoundingClientRect().width, unit.scrollWidth) : 0;
+      const required = numberWidth + unitWidth + (unit ? gap : 0);
       if (required <= available || !Number.isFinite(required)) return;
 
       const scale = available / required * 0.98;
       number.style.fontSize = `${numberSize * scale}px`;
-      unit.style.fontSize = `${unitSize * scale}px`;
+      if (unit) unit.style.fontSize = `${unitSize * scale}px`;
     });
   }
 
@@ -313,7 +317,7 @@ export default function App() {
 
   function remember(value = conversion()) {
     if (!value) return false;
-    const entry = { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle, precision())), result: `${formatValue(value.result, value.to, value.clockStyle, precision())} ${value.to.symbol}` };
+    const entry = { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle, precision())), result: formattedResult(value, precision()) };
     const next = [entry, ...recentConversions().filter(item => item.query !== entry.query)].slice(0, 8);
     setRecentConversions(next);
     save(HISTORY_KEY, next);
@@ -359,7 +363,7 @@ export default function App() {
 
   function isCompatible(unit, category) {
     const from = selectedFrom();
-    return !from || (from.symbol !== unit.symbol && (from.category === category || from.conversionGroup === 'pace-speed' && unit.conversionGroup === 'pace-speed'));
+    return !from ? !unit.outputOnly : from.symbol !== unit.symbol && (from.category === category || from.conversionGroup === 'pace-speed' && unit.conversionGroup === 'pace-speed');
   }
 
   function chooseUnit(unit, category) {
@@ -424,7 +428,7 @@ export default function App() {
 
   function swap() {
     const value = conversion();
-    if (!value) return;
+    if (!value || value.to.outputOnly) return;
     const amount = value.clockStyle ? formatValue(value.result, value.to, true, 15) : String(value.result);
     setQuery(symbolPairQuery(value.to, value.from, amount));
     queryDirty = false;
@@ -511,7 +515,7 @@ export default function App() {
 
           <Show when={!selectedFrom()}><section class="category-browser" aria-labelledby="categories-title">
             <div class="browse-section-heading"><h2 id="categories-title">All categories</h2><span>{catalog.length} categories</span></div>
-            <For each={categorySections}>{([sectionName, groups]) => <section class="category-section" aria-labelledby={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}><h3 id={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}>{sectionName}</h3><div class="category-grid"><For each={groups}>{group => <article class="category-item"><button class="category-card" type="button" aria-expanded={expanded().includes(group.category)} onClick={() => toggleCategory(group.category)}><span><strong>{titleCase(group.category)}</strong><small>{group.units.length} units</small></span><span aria-hidden="true">{expanded().includes(group.category) ? '−' : '+'}</span></button><Show when={expanded().includes(group.category)}><div class="unit-panel"><p class="sr-only">Choose a unit from {titleCase(group.category)}. The first unit becomes the source; then choose a compatible destination.</p><div class="unit-chips"><For each={group.units}>{unit => <button type="button" classList={{ selected: selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol, compatible: selectedFrom() && isCompatible(unit, group.category) }} disabled={selectedFrom() && !isCompatible(unit, group.category) && !(selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol)} onClick={() => chooseUnit(unit, group.category)} aria-pressed={selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol} title={unit.name}><strong>{unit.symbol}</strong><span>{unit.name}</span></button>}</For></div></div></Show></article>}</For></div></section>}</For>
+            <For each={categorySections}>{([sectionName, groups]) => <section class="category-section" aria-labelledby={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}><h3 id={`section-${sectionName.replace(/\W/g, '-').toLowerCase()}`}>{sectionName}</h3><div class="category-grid"><For each={groups}>{group => <article class="category-item"><button class="category-card" type="button" aria-expanded={expanded().includes(group.category)} onClick={() => toggleCategory(group.category)}><span><strong>{titleCase(group.category)}</strong><small>{group.units.length} units</small></span><span aria-hidden="true">{expanded().includes(group.category) ? '−' : '+'}</span></button><Show when={expanded().includes(group.category)}><div class="unit-panel"><p class="sr-only">Choose a unit from {titleCase(group.category)}. The first unit becomes the source; then choose a compatible destination.</p><div class="unit-chips"><For each={group.units}>{unit => <button type="button" classList={{ selected: selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol, compatible: selectedFrom() && isCompatible(unit, group.category) }} disabled={!isCompatible(unit, group.category)} onClick={() => chooseUnit(unit, group.category)} aria-pressed={selectedFrom()?.category === group.category && selectedFrom()?.symbol === unit.symbol} title={unit.outputOnly ? `${unit.name} (result only)` : unit.name}><strong>{unit.symbol}</strong><span>{unit.name}{unit.outputOnly ? ' (result)' : ''}</span></button>}</For></div></div></Show></article>}</For></div></section>}</For>
           </section></Show>
           </Show>
         </section>
@@ -537,12 +541,12 @@ export default function App() {
             </div>
             <div ref={resultDisplay} class="result" aria-live="polite" aria-atomic="true">
               <Show when={conversion()} fallback={<span class="empty-result">{query().trim() ? 'Enter a complete conversion, such as 10 km in miles.' : 'Your result appears here.'}</span>}>
-                <strong>{formatValue(conversion().result, conversion().to, conversion().clockStyle, precision())}</strong> <span>{conversion().to.symbol}</span>
+                <strong>{formatValue(conversion().result, conversion().to, conversion().clockStyle, precision())}</strong> <Show when={!conversion().to.formatIncludesUnit}><span>{conversion().to.symbol}</span></Show>
               </Show>
             </div>
             <Show when={conversion()}>
               <div class="actions">
-                <button type="button" onClick={swap} aria-label="Swap units using full precision"><span aria-hidden="true">⇄</span> Swap</button>
+                <button type="button" onClick={swap} disabled={conversion().to.outputOnly} aria-label={conversion().to.outputOnly ? 'Feet and inches is a result-only format' : 'Swap units using full precision'} title={conversion().to.outputOnly ? 'Result-only format' : undefined}><span aria-hidden="true">⇄</span> Swap</button>
                 <button type="button" onClick={copy}><span aria-hidden="true">□</span> {copied() ? 'Copied!' : 'Copy result'}</button>
                 <button type="button" onClick={togglePin} aria-pressed={pinned()}><span aria-hidden="true">{pinned() ? '★' : '☆'}</span> {pinned() ? 'Pinned' : 'Pin pair'}</button>
               </div>

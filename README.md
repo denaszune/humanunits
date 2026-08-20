@@ -6,7 +6,7 @@ Type a conversion such as `10 km in miles`, `72 °F to °C`, or `7:30 min/mi in 
 
 **[Open Human Units →](https://denaszune.github.io/humanunits/)**
 
-Human Units supports 506 units across 59 everyday, scientific, computing, and specialist categories. It works offline, requires no account, and includes no advertising, analytics, tracking, or third-party services.
+Human Units supports 507 units and result formats across 59 everyday, scientific, computing, and specialist categories. It works offline, requires no account, and includes no advertising, analytics, tracking, or third-party services.
 
 <!-- Add a final product screenshot here:
 ![Human Units converter](docs/screenshots/converter.png)
@@ -15,7 +15,7 @@ Human Units supports 506 units across 59 everyday, scientific, computing, and sp
 ## Features
 
 * **Natural-language input:** Enter conversions the way you would ask for them.
-* **Broad coverage:** Browse 506 units across 59 categories.
+* **Broad coverage:** Browse 507 units and result formats across 59 categories.
 * **Specialized conversion logic:** Handles temperature, pace, fuel economy, calendar durations, and other non-linear conversions.
 * **Adjustable precision:** Display results with 6, 10, or 15 significant digits.
 * **Pinned pairs:** Save and arrange frequently used unit pairs for quick reuse.

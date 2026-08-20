@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { convert, evaluate, formatNumber, formatValue, parseQuery, supportedPairs, supportedUnits } from './conversion.js';
+import { convert, evaluate, formatNumber, formatValue, pairQuery, parseQuery, supportedPairs, supportedUnits } from './conversion.js';
 import { movePin, prependPin, quickReusePins, reusePinnedPair } from './pins.js';
 
 function close(actual, expected, precision = 8) {
@@ -163,6 +163,17 @@ describe('conversion engine', () => {
     assert.equal(formatValue(longPace.result, longPace.to, longPace.clockStyle, 10), '55:55.4');
   });
 
+  it('formats a length result as feet and inches without accepting the format as a source', () => {
+    const conversion = evaluate('71 in in ft + in');
+    close(conversion.result, 5 + 11 / 12);
+    assert.equal(formatValue(conversion.result, conversion.to, false, 6), '5 ft 11 in');
+    const height = evaluate('180 cm in ft + in');
+    assert.equal(formatValue(height.result, height.to, false, 6), '5 ft 11 in');
+    assert.equal(formatValue(height.result, height.to, false, 10), '5 ft 10.87 in');
+    assert.equal(formatValue(evaluate('-6 in in ft + in').result, conversion.to, false, 6), '-0 ft 6 in');
+    assert.equal(evaluate('5 ft + in to cm'), null);
+  });
+
   it('uses readable scientific notation for very small conversion results', () => {
     const conversion = evaluate('23 m² in mi²');
     assert.equal(formatValue(conversion.result, conversion.to, conversion.clockStyle, 15), '8.88034964647625e-6');
@@ -173,9 +184,11 @@ describe('supported pairs catalog', () => {
   it('exposes a searchable unit catalog without generating pairs', () => {
     const catalog = supportedUnits();
     assert.equal(catalog.length, 59);
-    assert.equal(catalog.reduce((total, group) => total + group.units.length, 0), 506);
+    assert.equal(catalog.reduce((total, group) => total + group.units.length, 0), 507);
     const micrometer = catalog.find(group => group.category === 'length').units.find(unit => unit.symbol === 'µm');
     assert.ok(micrometer.aliases.includes('um'));
+    const feetAndInches = catalog.find(group => group.category === 'length').units.find(unit => unit.symbol === 'ft + in');
+    assert.equal(feetAndInches.outputOnly, true);
     assert.equal(Object.hasOwn(catalog[0], 'pairs'), false);
   });
 
@@ -186,7 +199,7 @@ describe('supported pairs catalog', () => {
     assert.deepEqual(catalog.find(group => group.category === 'pace').units.slice(0, 6).map(unit => unit.symbol), ['min/mi', 'min/km', 'sec/400 m', 'min/100 m', 'min/100 yd', 'min/500 m']);
     assert.ok(catalog[0].pairs[0].popular);
     assert.deepEqual([catalog[0].pairs[0].from.symbol, catalog[0].pairs[0].to.symbol], ['km', 'mi']);
-    assert.equal(catalog[0].pairs[0].query, '1 km in mi');
+    assert.equal(catalog[0].pairs[0].query, '10 km in mi');
     for (const group of catalog) {
       const firstRegularPair = group.pairs.findIndex(pair => !pair.popular);
       assert.ok(firstRegularPair < 0 || group.pairs.slice(firstRegularPair).every(pair => !pair.popular));
@@ -197,11 +210,22 @@ describe('supported pairs catalog', () => {
     const catalog = supportedPairs();
     assert.equal(catalog.length, 59);
     for (const group of catalog) {
-      const sizes = Object.values(Object.groupBy(group.units, unit => unit.conversionGroup || 'linear')).map(items => items.length);
-      assert.equal(group.pairs.length, sizes.reduce((total, size) => total + size * (size - 1), 0));
+      const expectedPairCount = Object.values(Object.groupBy(group.units, unit => unit.conversionGroup || 'linear'))
+        .reduce((total, items) => total + items.filter(unit => !unit.outputOnly).length * (items.length - 1), 0);
+      assert.equal(group.pairs.length, expectedPairCount);
       assert.ok(group.pairs.every(pair => evaluate(pair.query)));
+      assert.ok(group.pairs.every(pair => evaluate(pair.query).value !== 1));
+      assert.ok(group.pairs.every(pair => !pair.from.outputOnly));
     }
     assert.equal(catalog.find(group => group.category === 'calendar duration').pairs.length, 30);
+  });
+
+  it('uses practical defaults for common pairs and a non-one fallback for every pair', () => {
+    assert.equal(pairQuery('km', 'mi'), '10 km in mi');
+    assert.equal(pairQuery('°C', '°F'), '20 °C in °F');
+    assert.equal(pairQuery('kg', 'lb'), '70 kg in lb');
+    assert.equal(pairQuery('min/mi', 'min/km'), '8:00 min/mi in min/km');
+    assert.equal(pairQuery('ly', 'pc'), '10 ly in pc');
   });
 
   it('keeps special compatibility groups from becoming ordinary category-wide pairs', () => {

@@ -67,7 +67,7 @@ Verify the displayed result as well as whether the query is accepted or rejected
 - [ ] Pinning stores the directed source-to-destination pair, not a numeric result.
 - [ ] The reverse direction is a distinct pin.
 - [ ] Unpinning removes only the current direction.
-- [ ] Reusing a pin evaluates the pair with an amount of `1`.
+- [ ] Reusing a pin evaluates the pair with its practical default amount (for example, `10 km in mi`).
 - [ ] Adding nine distinct pins retains only the newest eight.
 - [ ] Reloading preserves pins, order, direction, and pressed state for the current pair.
 
@@ -88,7 +88,7 @@ Use browser developer tools to inspect and, in a disposable profile, edit storag
 
 ## Browse directory
 
-- [ ] Browse reports exactly 506 units across 59 categories.
+- [ ] Browse reports exactly 507 units and result formats across 59 categories.
 - [ ] All six category sections appear with the expected categories and counts.
 - [ ] Multiple categories can be expanded and collapsed independently.
 - [ ] Search matches a category name, full unit name, symbol, and alias.
@@ -121,6 +121,8 @@ Use browser developer tools to inspect and, in a disposable profile, edit storag
 
 - [ ] On a fine-pointer device, initial load focuses the conversion input without scrolling the page.
 - [ ] Initial load on a coarse-pointer/touch device does not force the software keyboard open.
+- [ ] On a phone-width viewport, focusing a text field hides both the header and bottom navigation until the keyboard closes.
+- [ ] Choosing `ft + in` as a length destination formats `71 in` as `5 ft 11 in`; it cannot be selected as a source.
 - [ ] Escape clears a nonempty converter query and copied state.
 - [ ] Tab and Shift+Tab reach every interactive control in a logical order.
 - [ ] Every keyboard-focusable control has a clearly visible focus indicator.

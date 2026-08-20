@@ -13,6 +13,8 @@ function add(category, entries) {
 add('length', [
   ['qm','quectometer',1e-30],['rm','rontometer',1e-27],['ym','yoctometer',1e-24],['zm','zeptometer',1e-21],['am','attometer',1e-18],['fm','femtometer',1e-15],['pm','picometer',1e-12],['nm','nanometer',1e-9],['µm','micrometer',1e-6,['micron']],['mm','millimeter',1e-3],['cm','centimeter',1e-2],['dm','decimeter',.1],['m','meter',1,['metre']],['dam','decameter',10],['hm','hectometer',100],['km','kilometer',1e3,['kilometre','kms']],['Mm','megameter',1e6],['Gm','gigameter',1e9],['Å','angstrom',1e-10],['mil','thou',.0000254],['in','inch',.0254,['inches']],['ft','foot',.3048,['feet']],['yd','yard',.9144],['rd','rod',5.0292],['ch','chain',20.1168],['fur','furlong',201.168],['mi','mile',1609.344],['ftm','fathom',1.8288],['cable','cable length',185.2],['nmi','nautical mile',1852],['au','astronomical unit',149597870700],['ly','light-year',9.4607304725808e15],['pc','parsec',3.085677581491367e16]
 ]);
+add('length', [['ft + in', 'feet and inches', .3048, ['foot and inches', 'feet inches']]]);
+Object.assign(units.at(-1), { outputOnly: true, format: 'feet-inches', formatIncludesUnit: true });
 add('area', [['mm²','square millimeter',1e-6,['mm2']],['cm²','square centimeter',1e-4,['cm2']],['dm²','square decimeter',.01,['dm2']],['m²','square meter',1,['m2','sq m']],['a','are',100],['ha','hectare',1e4],['km²','square kilometer',1e6,['km2']],['in²','square inch',.00064516,['in2']],['ft²','square foot',.09290304,['ft2','sq ft','square feet']],['yd²','square yard',.83612736,['yd2']],['acre','acre',4046.8564224],['mi²','square mile',2589988.110336,['mi2']],['nmi²','square nautical mile',3429904,['nmi2']],['b','barn',1e-28]]);
 add('volume', [['µL','microliter',1e-6],['mL','milliliter',.001],['cL','centiliter',.01],['dL','deciliter',.1],['L','liter',1,['litre']],['m³','cubic meter',1000,['m3']],['cm³','cubic centimeter',.001,['cm3','cc']],['mm³','cubic millimeter',1e-6,['mm3']],['in³','cubic inch',.016387064,['in3']],['ft³','cubic foot',28.316846592,['ft3']],['yd³','cubic yard',764.554857984,['yd3']],['tsp (US)','US teaspoon',.00492892159375,['tsp']],['tbsp (US)','US tablespoon',.01478676478125,['tbsp']],['fl oz (US)','US fluid ounce',.0295735295625,['fl oz']],['cup (US)','US cup',.2365882365,['cup']],['pt (US)','US liquid pint',.473176473,['pint']],['qt (US)','US liquid quart',.946352946,['quart']],['gal (US)','US liquid gallon',3.785411784,['gallon','gal']],['fl oz (Imp)','Imperial fluid ounce',.0284130625],['gill (Imp)','Imperial gill',.1420653125],['pt (Imp)','Imperial pint',.56826125],['qt (Imp)','Imperial quart',1.1365225],['gal (Imp)','Imperial gallon',4.54609],['tsp (metric)','metric teaspoon',.005],['tbsp (metric)','metric tablespoon',.015],['cup (metric)','metric cup',.25],['tbsp (AU)','Australian tablespoon',.02],['dry pt (US)','US dry pint',.5506104713575],['dry qt (US)','US dry quart',1.101220942715],['dry gal (US)','US dry gallon',4.40488377086],['pk','US peck',8.80976754172],['bu','US bushel',35.23907016688],['bbl (oil)','oil barrel',158.987294928]]);
 add('mass', [['µg','microgram',1e-6],['mg','milligram',.001],['cg','centigram',.01],['g','gram',1],['dag','decagram',10],['hg','hectogram',100],['kg','kilogram',1000,['kilo']],['t','tonne',1e6,['metric ton']],['ct','carat',.2],['gr','grain',.06479891],['dr','avoirdupois dram',1.7718451953125],['oz','avoirdupois ounce',28.349523125,['ounce']],['lb','pound',453.59237],['st','stone',6350.29318],['cwt (US)','US hundredweight',45359.237],['cwt (Imp)','Imperial hundredweight',50802.34544],['ton (US)','short ton',907184.74,['ton']],['ton (Imp)','long ton',1016046.9088],['oz t','troy ounce',31.1034768],['lb t','troy pound',373.2417216]]);
@@ -117,7 +119,7 @@ for (const unit of units) for (const alias of unit.aliases) {
 
 const popularCategoryOrder = ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'time', 'digital storage', 'energy', 'pressure', 'power', 'fuel economy'];
 const popularUnits = new Map(Object.entries({
-  length: ['km', 'mi', 'm', 'ft', 'cm', 'in'], temperature: ['°C', '°F', 'K'], mass: ['kg', 'lb', 'g', 'oz'],
+  length: ['km', 'mi', 'm', 'ft', 'cm', 'in', 'ft + in'], temperature: ['°C', '°F', 'K'], mass: ['kg', 'lb', 'g', 'oz'],
   volume: ['L', 'gal (US)', 'mL', 'fl oz (US)', 'cup (US)'], area: ['m²', 'ft²', 'ha', 'acre'],
   speed: ['km/h', 'mph', 'm/s'], pace: ['min/mi', 'min/km', 'sec/400 m', 'min/100 m', 'min/100 yd', 'min/500 m'], time: ['min', 'h', 'd', 's'], 'digital storage': ['MB', 'MiB', 'GB', 'GiB'],
   energy: ['kJ', 'kcal', 'kWh', 'J'], pressure: ['bar', 'psi', 'kPa'], power: ['kW', 'hp', 'W'],
@@ -131,11 +133,67 @@ const popularPairList = [
 ];
 const popularPairKeys = new Set(popularPairList.flatMap(([from, to]) => [`${from}\0${to}`, `${to}\0${from}`]));
 
+// Pair pickers should open on recognizable real-world examples instead of a
+// wall of "1" conversions. Defaults belong to the source unit; uncommon units
+// deliberately fall back to 10, which is still more useful for comparing scale.
+const sourceDefaults = new Map(Object.entries({
+  'length\0km': 10, 'length\0mi': 5, 'length\0m': 2, 'length\0ft': 6, 'length\0cm': 180, 'length\0in': 12,
+  'area\0m²': 100, 'area\0ft²': 1000, 'area\0ha': 10, 'area\0acre': 25,
+  'volume\0mL': 500, 'volume\0L': 2, 'volume\0fl oz (US)': 16, 'volume\0cup (US)': 2, 'volume\0gal (US)': 5,
+  'mass\0g': 100, 'mass\0kg': 70, 'mass\0oz': 8, 'mass\0lb': 150,
+  'temperature\0K': 293.15, 'temperature\0°C': 20, 'temperature\0°F': 70, 'temperature\0°R': 527.67,
+  'temperature\0°Ré': 16, 'temperature\0°De': 120, 'temperature\0°N': 6.6, 'temperature\0°Rø': 18,
+  'speed\0m/s': 10, 'speed\0km/h': 100, 'speed\0mph': 60, 'speed\0ft/s': 30, 'speed\0kn': 20, 'speed\0Mach': 2,
+  'pace\0min/mi': '8:00', 'pace\0min/km': '5:00', 'pace\0sec/400 m': '1:30', 'pace\0min/100 m': '2:00',
+  'pace\0min/100 yd': '2:00', 'pace\0min/500 m': '2:00', 'pace\0s/m': 2, 'pace\0sec/100 m': '1:30',
+  'pace\0sec/100 yd': '1:30', 'pace\0sec/50 m': '0:45', 'pace\0sec/50 yd': '0:45',
+  'time\0ns': 1000, 'time\0µs': 1000, 'time\0ms': 500, 'time\0s': 60, 'time\0min': 30, 'time\0h': 8,
+  'time\0d': 7, 'time\0wk': 4, 'time\0fortnight': 2, 'time\0yr365': 10, 'time\0yr366': 10, 'time\0a': 10,
+  'angle\0rad': 3.14159, 'angle\0°': 90, 'angle\0′': 60, 'angle\0″': 60, 'angle\0rev': 2,
+  'pressure\0kPa': 200, 'pressure\0bar': 2, 'pressure\0atm': 2, 'pressure\0mmHg': 760, 'pressure\0inHg': 30, 'pressure\0psi': 30,
+  'energy\0J': 1000, 'energy\0kJ': 500, 'energy\0kWh': 10, 'energy\0kcal': 500,
+  'power\0W': 1000, 'power\0kW': 100, 'power\0hp': 150,
+  'digital storage\0B': 1024, 'digital storage\0kB': 1000, 'digital storage\0KiB': 1024,
+  'digital storage\0MB': 100, 'digital storage\0MiB': 100, 'digital storage\0GB': 100, 'digital storage\0GiB': 100,
+  'data rate\0bit/s': 100, 'data rate\0Mbit/s': 100, 'data rate\0Gbit/s': 10,
+  'fuel economy\0L/100km': 8, 'fuel economy\0km/L': 12, 'fuel economy\0mpg (US)': 30,
+  'fuel economy\0mpg (Imp)': 35, 'fuel economy\0gal/100mi (US)': 3,
+  'ratio\0%': 20, 'ratio\0bp': 100, 'ratio\0ppm': 100,
+  'calendar duration\0month': 12, 'calendar duration\0quarter': 4, 'calendar duration\0year': 10,
+  'typography\0pt': 12, 'typography\0px': 16, 'typography\0mm': 210, 'typography\0cm': 21, 'typography\0in': 8.5,
+  'pixel density\0ppi': 96, 'pixel density\0dpi': 300, 'pixel density\0px/cm': 38, 'pixel density\0dpcm': 118,
+}));
+
+const unitSymbol = unit => typeof unit === 'string' ? unit : unit?.symbol;
+const pairIsCompatible = (from, to) => from.category === to.category && from.conversionGroup === to.conversionGroup || from.conversionGroup === 'pace-speed' && to.conversionGroup === 'pace-speed';
+
+function resolvePair(from, to) {
+  const fromSymbol = unitSymbol(from), toSymbol = unitSymbol(to);
+  const fromCategory = typeof from === 'object' ? from?.category : undefined;
+  const toCategory = typeof to === 'object' ? to?.category : undefined;
+  const fromMatches = units.filter(unit => unit.symbol === fromSymbol && (!fromCategory || unit.category === fromCategory));
+  const toMatches = units.filter(unit => unit.symbol === toSymbol && (!toCategory || unit.category === toCategory));
+  for (const source of fromMatches) {
+    const destination = toMatches.find(candidate => pairIsCompatible(source, candidate));
+    if (destination) return { from: source, to: destination };
+  }
+  return null;
+}
+
+export function defaultPairValue(from, to) {
+  const pair = resolvePair(from, to);
+  return pair ? sourceDefaults.get(`${pair.from.category}\0${pair.from.symbol}`) ?? 10 : 10;
+}
+
+export function pairQuery(from, to, value = defaultPairValue(from, to)) {
+  return `${value} ${unitSymbol(from)} in ${unitSymbol(to)}`;
+}
+
 export function supportedUnits() {
   const categories = new Map();
   for (const unit of units) {
     const category = categories.get(unit.category) || [];
-    category.push({ name: unit.name, symbol: unit.symbol, query: unit.name, aliases: unit.aliases, conversionGroup: unit.conversionGroup }); categories.set(unit.category, category);
+    category.push({ name: unit.name, symbol: unit.symbol, query: unit.name, aliases: unit.aliases, category: unit.category, conversionGroup: unit.conversionGroup, outputOnly: unit.outputOnly, format: unit.format, formatIncludesUnit: unit.formatIncludesUnit }); categories.set(unit.category, category);
   }
   return [...categories].map(([category, categoryUnits], sourceIndex) => {
     const preferred = popularUnits.get(category) || [];
@@ -150,8 +208,8 @@ export function supportedUnits() {
 
 export function supportedPairs() {
   return supportedUnits().map(group => {
-    const pairs = group.units.flatMap(from => group.units.filter(to => to !== from && to.conversionGroup === from.conversionGroup).map(to => ({
-      from, to, query: `1 ${from.symbol} in ${to.symbol}`, popular: popularPairKeys.has(`${from.symbol}\0${to.symbol}`)
+    const pairs = group.units.filter(from => !from.outputOnly).flatMap(from => group.units.filter(to => to !== from && to.conversionGroup === from.conversionGroup).map(to => ({
+      from, to, query: pairQuery(from, to), popular: popularPairKeys.has(`${from.symbol}\0${to.symbol}`)
     }))).map((pair, index) => ({ pair, index })).sort((a, b) => Number(b.pair.popular) - Number(a.pair.popular) || a.index - b.index).map(({ pair }) => pair);
     return { ...group, pairs };
   });
@@ -179,10 +237,7 @@ export function parseQuery(input) {
   const toPace = paceUnit(match[3]);
   const fromMatches = fromPace ? [fromPace] : byAlias.get(clean(match[2])) || [];
   const toMatches = toPace ? [toPace] : byAlias.get(clean(match[3])) || [];
-  const candidates = fromMatches.flatMap(from => toMatches.filter(to =>
-    to.category === from.category && to.conversionGroup === from.conversionGroup ||
-    from.conversionGroup === 'pace-speed' && to.conversionGroup === 'pace-speed'
-  ).map(to => ({from,to})));
+  const candidates = fromMatches.filter(from => !from.outputOnly).flatMap(from => toMatches.filter(to => pairIsCompatible(from, to)).map(to => ({from,to})));
   if (!candidates.length) return null;
   const {from,to} = candidates[0];
   const clockUnitSeconds = from.category === 'pace'
@@ -193,6 +248,7 @@ export function parseQuery(input) {
 }
 
 export function convert(value, from, to) {
+  if (from.outputOnly) throw new Error('This format can only be used for results');
   const paceToSpeed = from.conversionGroup === 'pace-speed' && to.conversionGroup === 'pace-speed' && from.category !== to.category;
   if (!paceToSpeed && (from.category !== to.category || from.conversionGroup !== to.conversionGroup)) throw new Error('Units must belong to the same conversion group');
   const base = from.toBase ? from.toBase(value) : value * from.factor;
@@ -202,6 +258,16 @@ export function convert(value, from, to) {
 export function evaluate(input) { const parsed=parseQuery(input); return parsed ? {...parsed,result:convert(parsed.value,parsed.from,parsed.to)} : null; }
 export function formatNumber(value, maximumSignificantDigits = 10) { if(!Number.isFinite(value))return String(value);if(Object.is(value,-0))value=0;const magnitude=Math.abs(value);if(magnitude!==0&&(magnitude>=1e12||magnitude<1e-4)){const [c,e]=value.toExponential(Math.max(0,maximumSignificantDigits-1)).split('e');return `${c.replace(/\.?0+$/,'')}e${e}`;}return new Intl.NumberFormat('en-US',{maximumSignificantDigits}).format(value); }
 export function formatValue(value, unit, clockStyle = false, maximumSignificantDigits = 10) {
+  if (unit?.format === 'feet-inches' && Number.isFinite(value)) {
+    const sign = value < 0 ? '-' : '';
+    const fractionalDigits = maximumSignificantDigits <= 6 ? 0 : maximumSignificantDigits <= 10 ? 2 : 5;
+    const factor = 10 ** fractionalDigits;
+    const totalInches = Math.round(Math.abs(value) * 12 * factor) / factor;
+    const feet = Math.floor(totalInches / 12);
+    const inches = totalInches - feet * 12;
+    const formattedInches = fractionalDigits ? inches.toFixed(fractionalDigits).replace(/\.?0+$/, '') : inches.toFixed(0);
+    return `${sign}${feet} ft ${formattedInches} in`;
+  }
   if (!clockStyle || unit?.category !== 'pace' || !Number.isFinite(value)) return formatNumber(value, maximumSignificantDigits);
   const unitSeconds = /^min\//.test(unit.symbol) ? 60 : /^h\//.test(unit.symbol) ? 3600 : 1;
   const fractionalDigits = maximumSignificantDigits <= 6 ? 0 : maximumSignificantDigits <= 10 ? 2 : 5;

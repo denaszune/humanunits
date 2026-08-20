@@ -8,12 +8,12 @@ const html = await readFile(join(root, 'index.html'), 'utf8');
 const htmlAssets = [
   'manifest.webmanifest',
   'icon-any.323fef38.svg',
-  'favicon-32.42bba446.png',
-  'apple-touch-180.72eade88.png',
+  'favicon-32.b4790ade.png',
+  'apple-touch-180.625da17a.png',
 ];
 const manifestAssets = [
-  'icon-any-192.bf511c85.png',
-  'icon-any-512.fa6c07c1.png',
+  'icon-any-192.e8768384.png',
+  'icon-any-512.3275eece.png',
   'icon-any.323fef38.svg',
   'icon-maskable-192.73ac1b16.png',
   'icon-maskable-512.c93087a1.png',
