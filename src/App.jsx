@@ -308,13 +308,6 @@ export default function App() {
       restingHeight = Math.max(restingHeight, currentHeight());
       keyboardSeen = keyboardIsVisible();
       setDockSuppressed(true);
-      if (viewport && !keyboardSeen) {
-        // Avoid hiding the chrome indefinitely for a hardware keyboard or a
-        // browser that chose not to open its on-screen keyboard.
-        settleTimer = setTimeout(() => {
-          if (!keyboardSeen && !keyboardIsVisible()) setDockSuppressed(false);
-        }, 700);
-      }
     };
     const handleFocusOut = event => {
       if (!event.target.matches?.(textInputSelector)) return;
