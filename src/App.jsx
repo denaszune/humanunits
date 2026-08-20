@@ -20,25 +20,6 @@ const scrollToTop = (smooth = true, scroller) => {
   const rootScroller = document.scrollingElement || document.documentElement;
   if (rootScroller !== scroller) rootScroller.scrollTo(options);
 };
-const scrollToTopThen = run => {
-  const element = document.scrollingElement || document.documentElement;
-  const distance = element?.scrollTop ?? 0;
-  if (distance <= 0 || matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    run();
-    return;
-  }
-  element.scrollTo({ top: 0, behavior: 'smooth' });
-  const start = performance.now();
-  const deadline = start + Math.min(1200, 300 + distance / 2);
-  const tick = now => {
-    if (element.scrollTop <= 0 || now >= deadline) {
-      run();
-      return;
-    }
-    requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
-};
 
 function AboutPage(props) {
   return <section class="about-page" aria-labelledby="about-title">
@@ -159,7 +140,7 @@ export default function App() {
   const [dockSuppressed, setDockSuppressed] = createSignal(false);
   const catalog = supportedUnits();
   const unitCount = catalog.reduce((total, group) => total + group.units.length, 0);
-  const popularPairSymbols = [['km', 'mi'], ['°C', '°F'], ['kg', 'lb'], ['cm', 'in'], ['L', 'gal (US)'], ['min/mi', 'min/km']];
+  const popularPairSymbols = [['km', 'mi'], ['°C', '°F'], ['kg', 'lb'], ['cm', 'ft + in'], ['L', 'gal (US)'], ['min/mi', 'min/km']];
   const popularPairs = popularPairSymbols.map(([fromSymbol, toSymbol]) => {
     const group = catalog.find(item => item.units.some(unit => unit.symbol === fromSymbol) && item.units.some(unit => unit.symbol === toSymbol));
     const from = group?.units.find(unit => unit.symbol === fromSymbol);
@@ -197,23 +178,14 @@ export default function App() {
     return catalog.flatMap(group => group.units.filter(unit => isCompatible(unit, group.category)).map(unit => ({ ...unit, category: group.category })));
   });
   const pageFromLocation = () => location.pathname.replace(/\/$/, '').endsWith('/license') ? 'license' : location.hash === '#pairs' ? 'pairs' : location.hash === '#library' ? 'library' : location.hash === '#about' ? 'about' : 'converter';
-  const pageFromUrl = url => url.endsWith('/license') ? 'license' : url.includes('#pairs') ? 'pairs' : url.includes('#library') ? 'library' : url.includes('#about') ? 'about' : 'converter';
   const [page, setPage] = createSignal(pageFromLocation());
   const handleLocationChange = () => setPage(pageFromLocation());
   const handleInternalLink = (event, url) => {
     if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    const samePage = page() === pageFromUrl(url);
-    const navigate = () => {
-      window.history.pushState(null, '', url);
-      handleLocationChange();
-    };
-    const finish = () => {
-      navigate();
-      requestAnimationFrame(() => scrollToTop(true, quickReuseRef));
-    };
-    if (samePage) finish();
-    else scrollToTopThen(finish);
+    window.history.pushState(null, '', url);
+    handleLocationChange();
+    requestAnimationFrame(() => scrollToTop(true, quickReuseRef));
   };
   const handleHashChange = handleLocationChange;
   addEventListener('hashchange', handleHashChange);
@@ -288,42 +260,79 @@ export default function App() {
   onMount(() => {
     const viewport = window.visualViewport;
     const textInputSelector = 'input:not([type]), input[type="text"], input[type="search"]';
-    let viewportHeight = viewport?.height ?? innerHeight;
-    let restoreTimer;
+    let restingHeight = viewport?.height ?? innerHeight;
+    let keyboardSeen = false;
+    let settleTimer;
 
-    const cancelRestore = () => {
-      clearTimeout(restoreTimer);
-      restoreTimer = undefined;
+    const activeTextInput = () => document.activeElement?.matches(textInputSelector) ? document.activeElement : null;
+    const currentHeight = () => viewport?.height ?? innerHeight;
+    const keyboardIsVisible = () => restingHeight - currentHeight() > Math.max(80, restingHeight * .12);
+    const cancelSettle = () => {
+      clearTimeout(settleTimer);
+      settleTimer = undefined;
     };
-    const restoreDock = (force = false) => {
-      if (!force && document.activeElement?.matches(textInputSelector)) return;
-      cancelRestore();
+    const finishKeyboardClose = () => {
+      cancelSettle();
+      if (viewport && keyboardIsVisible()) {
+        keyboardSeen = true;
+        setDockSuppressed(true);
+        return;
+      }
+      restingHeight = Math.max(restingHeight, currentHeight());
+      if (keyboardSeen) {
+        keyboardSeen = false;
+        activeTextInput()?.blur();
+      }
       setDockSuppressed(false);
     };
-    const restoreWhenViewportRecovers = () => {
-      if (!viewport || viewport.height >= viewportHeight - 40) restoreDock(true);
+    const settleKeyboardClose = (delay = 500) => {
+      cancelSettle();
+      settleTimer = setTimeout(finishKeyboardClose, delay);
+    };
+    const syncViewport = () => {
+      cancelSettle();
+      if (keyboardIsVisible()) {
+        keyboardSeen = true;
+        setDockSuppressed(true);
+      } else if (keyboardSeen) {
+        // Predictive-back gestures can temporarily expand the viewport and then
+        // be cancelled. Only commit the close after its geometry has settled.
+        settleKeyboardClose();
+      } else if (!activeTextInput()) {
+        settleKeyboardClose(120);
+      }
     };
     const handleFocusIn = event => {
       if (!event.target.matches?.(textInputSelector)) return;
-      cancelRestore();
-      if (!dockSuppressed()) viewportHeight = viewport?.height ?? innerHeight;
+      cancelSettle();
+      restingHeight = Math.max(restingHeight, currentHeight());
+      keyboardSeen = keyboardIsVisible();
       setDockSuppressed(true);
+      if (viewport && !keyboardSeen) {
+        // Avoid hiding the chrome indefinitely for a hardware keyboard or a
+        // browser that chose not to open its on-screen keyboard.
+        settleTimer = setTimeout(() => {
+          if (!keyboardSeen && !keyboardIsVisible()) setDockSuppressed(false);
+        }, 700);
+      }
     };
     const handleFocusOut = event => {
       if (!event.target.matches?.(textInputSelector)) return;
       if (event.relatedTarget?.matches?.(textInputSelector)) return;
-      queueMicrotask(restoreWhenViewportRecovers);
-      restoreTimer = setTimeout(restoreDock, 800);
+      if (viewport) syncViewport();
+      else settleKeyboardClose(180);
     };
 
     document.addEventListener('focusin', handleFocusIn);
     document.addEventListener('focusout', handleFocusOut);
-    viewport?.addEventListener('resize', restoreWhenViewportRecovers);
+    viewport?.addEventListener('resize', syncViewport);
+    viewport?.addEventListener('scroll', syncViewport);
     onCleanup(() => {
-      cancelRestore();
+      cancelSettle();
       document.removeEventListener('focusin', handleFocusIn);
       document.removeEventListener('focusout', handleFocusOut);
-      viewport?.removeEventListener('resize', restoreWhenViewportRecovers);
+      viewport?.removeEventListener('resize', syncViewport);
+      viewport?.removeEventListener('scroll', syncViewport);
     });
   });
 
@@ -384,7 +393,7 @@ export default function App() {
   }
 
   function chooseBrowseQuery(text) {
-    const amount = text.match(/^[+-]?(?:(?:\d+(?::\d+)+(?:\.\d+)?)|(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)/i);
+    const amount = text.match(/^[+-]?(?:(?:\d+(?:\.\d*)?|\.\d+)\s*(?:ft|foot|feet|')\s*(?:\d+(?:\.\d*)?|\.\d+)\s*(?:in(?:ch(?:es)?)?|")|(?:\d+(?::\d+)+(?:\.\d+)?)|(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)/i);
     setBrowseSelection(amount ? { query: text, start: amount.index, end: amount[0].length } : null);
     chooseQuery(text);
     const go = () => {
@@ -394,8 +403,7 @@ export default function App() {
       }
       queueMicrotask(() => scrollToTop(true, quickReuseRef));
     };
-    if (page() !== 'converter') scrollToTopThen(go);
-    else go();
+    go();
   }
 
   function toggleCategory(category) {
@@ -588,7 +596,7 @@ export default function App() {
             </div>
             <Show when={conversion()}>
               <div class="actions">
-                <button type="button" onClick={swap} disabled={conversion().to.outputOnly} aria-label={conversion().to.outputOnly ? 'Feet and inches is a result-only format' : 'Swap units using full precision'} title={conversion().to.outputOnly ? 'Result-only format' : undefined}><span aria-hidden="true">⇄</span> Swap</button>
+                <button type="button" onClick={swap} aria-label="Swap units using full precision"><span aria-hidden="true">⇄</span> Swap</button>
                 <button type="button" onClick={copy}><span aria-hidden="true">□</span> {copied() ? 'Copied!' : 'Copy result'}</button>
                 <button type="button" onClick={togglePin} aria-pressed={pinned()}><span aria-hidden="true">{pinned() ? '★' : '☆'}</span> {pinned() ? 'Pinned' : 'Pin pair'}</button>
               </div>

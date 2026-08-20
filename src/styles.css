@@ -25,8 +25,8 @@
   --radius-sm: 7px; --radius-md: 10px; --radius-lg: 16px;
   --border-width: 1px; --control-height: 44px;
   --shadow-card: 0 14px 34px #123c3414;
-  --motion-instant: 80ms; --motion-fast: 140ms; --motion-standard: 200ms;
-  --ease-out: cubic-bezier(.2, .8, .2, 1); --ease-standard: cubic-bezier(.2, 0, 0, 1);
+  --motion-instant: 80ms; --motion-fast: 140ms; --motion-standard: 200ms; --motion-chrome: 240ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1); --ease-standard: cubic-bezier(.2, 0, 0, 1); --ease-chrome: cubic-bezier(.22, 1, .36, 1);
   --duration-fast: var(--motion-instant); --duration-state: var(--motion-fast); --duration-expand: var(--motion-standard);
   --ease: var(--ease-out);
   --content-width: 1040px; --convert-width: 800px; --shell-width: 1120px;
@@ -288,7 +288,7 @@ h1 { color: var(--deep-green); text-wrap: balance; }
 
 /* Responsive application shell. */
 @media (max-width: 640px) {
-  .app-shell { padding-bottom: calc(82px + env(safe-area-inset-bottom)); transition: padding-bottom var(--motion-standard) var(--ease-standard); }
+  .app-shell { padding-bottom: calc(82px + env(safe-area-inset-bottom)); transition: padding-bottom var(--motion-chrome) var(--ease-chrome); }
   .site-header { min-height: 64px; padding: var(--space-2) var(--space-4); gap: var(--space-2); }
   .brand { gap: var(--space-2); }
   .brand-mark { width: 32px; height: 32px; }
@@ -311,9 +311,9 @@ h1 { color: var(--deep-green); text-wrap: balance; }
     border-radius: var(--radius-lg);
     background: var(--surface);
     box-shadow: 0 8px 28px #123c3424;
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
     opacity: 1;
-    transition: transform var(--motion-standard) var(--ease-standard), opacity var(--motion-standard) var(--ease-standard);
+    transition: transform var(--motion-chrome) var(--ease-chrome), opacity var(--motion-fast) linear;
     will-change: transform, opacity;
   }
   .mobile-primary-nav a {
@@ -344,8 +344,10 @@ h1 { color: var(--deep-green); text-wrap: balance; }
     padding-top: var(--space-2);
     padding-bottom: var(--space-2);
     border-bottom-width: 1px;
+    transform: translate3d(0, 0, 0);
     opacity: 1;
-    transition: max-height var(--motion-standard) var(--ease-standard), padding-top var(--motion-standard) var(--ease-standard), padding-bottom var(--motion-standard) var(--ease-standard), border-bottom-width var(--motion-standard) var(--ease-standard), opacity var(--motion-standard) var(--ease-standard);
+    transition: max-height var(--motion-chrome) var(--ease-chrome), padding-top var(--motion-chrome) var(--ease-chrome), padding-bottom var(--motion-chrome) var(--ease-chrome), border-bottom-width var(--motion-chrome) var(--ease-chrome), transform var(--motion-chrome) var(--ease-chrome), opacity var(--motion-fast) linear;
+    will-change: max-height, transform, opacity;
   }
   .app-shell.dock-suppressed { padding-bottom: 0; }
   .app-shell.dock-suppressed .site-header {
@@ -353,11 +355,12 @@ h1 { color: var(--deep-green); text-wrap: balance; }
     padding-top: 0;
     padding-bottom: 0;
     border-bottom-width: 0;
+    transform: translate3d(0, -10px, 0);
     opacity: 0;
     pointer-events: none;
   }
   .app-shell.dock-suppressed .mobile-primary-nav {
-    transform: translateY(120%);
+    transform: translate3d(0, calc(100% + 16px), 0);
     opacity: 0;
     pointer-events: none;
   }

@@ -163,7 +163,7 @@ describe('conversion engine', () => {
     assert.equal(formatValue(longPace.result, longPace.to, longPace.clockStyle, 10), '55:55.4');
   });
 
-  it('formats a length result as feet and inches without accepting the format as a source', () => {
+  it('formats feet and inches as a result and accepts it as a source', () => {
     const conversion = evaluate('71 in in ft + in');
     close(conversion.result, 5 + 11 / 12);
     assert.equal(formatValue(conversion.result, conversion.to, false, 6), '5 ft 11 in');
@@ -171,7 +171,9 @@ describe('conversion engine', () => {
     assert.equal(formatValue(height.result, height.to, false, 6), '5 ft 11 in');
     assert.equal(formatValue(height.result, height.to, false, 10), '5 ft 10.87 in');
     assert.equal(formatValue(evaluate('-6 in in ft + in').result, conversion.to, false, 6), '-0 ft 6 in');
-    assert.equal(evaluate('5 ft + in to cm'), null);
+    close(evaluate('5 ft 11 in to cm')?.result, 180.34);
+    close(evaluate(`5' 11" to cm`)?.result, 180.34);
+    assert.equal(pairQuery('ft + in', 'cm'), '5 ft 10 in to cm');
   });
 
   it('uses readable scientific notation for very small conversion results', () => {
@@ -188,7 +190,7 @@ describe('supported pairs catalog', () => {
     const micrometer = catalog.find(group => group.category === 'length').units.find(unit => unit.symbol === 'µm');
     assert.ok(micrometer.aliases.includes('um'));
     const feetAndInches = catalog.find(group => group.category === 'length').units.find(unit => unit.symbol === 'ft + in');
-    assert.equal(feetAndInches.outputOnly, true);
+    assert.equal(feetAndInches.outputOnly, undefined);
     assert.equal(Object.hasOwn(catalog[0], 'pairs'), false);
   });
 
@@ -200,6 +202,8 @@ describe('supported pairs catalog', () => {
     assert.ok(catalog[0].pairs[0].popular);
     assert.deepEqual([catalog[0].pairs[0].from.symbol, catalog[0].pairs[0].to.symbol], ['km', 'mi']);
     assert.equal(catalog[0].pairs[0].query, '10 km in mi');
+    assert.ok(catalog[0].pairs.some(pair => pair.popular && pair.from.symbol === 'cm' && pair.to.symbol === 'ft + in'));
+    assert.ok(!catalog[0].pairs.some(pair => pair.popular && pair.from.symbol === 'cm' && pair.to.symbol === 'in'));
     for (const group of catalog) {
       const firstRegularPair = group.pairs.findIndex(pair => !pair.popular);
       assert.ok(firstRegularPair < 0 || group.pairs.slice(firstRegularPair).every(pair => !pair.popular));
@@ -224,6 +228,7 @@ describe('supported pairs catalog', () => {
     assert.equal(pairQuery('km', 'mi'), '10 km in mi');
     assert.equal(pairQuery('°C', '°F'), '20 °C in °F');
     assert.equal(pairQuery('kg', 'lb'), '70 kg in lb');
+    assert.equal(pairQuery('ft + in', 'cm'), '5 ft 10 in to cm');
     assert.equal(pairQuery('min/mi', 'min/km'), '8:00 min/mi in min/km');
     assert.equal(pairQuery('ly', 'pc'), '10 ly in pc');
   });
