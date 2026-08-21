@@ -1,8 +1,9 @@
 import { render } from 'solid-js/web';
+import { ErrorBoundary } from 'solid-js';
 import App from './App.jsx';
 import './styles.css';
 
-render(() => <App />, document.getElementById('root'));
+render(() => <ErrorBoundary fallback={() => <main class="fatal-error"><h1>Human Units hit an unexpected error</h1><p>Your saved data has not been deleted. Reload the app to try again.</p><button type="button" onClick={() => location.reload()}>Reload Human Units</button></main>}><App /></ErrorBoundary>, document.getElementById('root'));
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {

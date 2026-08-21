@@ -9,7 +9,8 @@ Record the browser, operating system, viewport, build commit, base path, and whe
 - [ ] Record `git branch`, `git rev-parse HEAD`, and `git status --short`; confirm the intended feature branch and clean worktree.
 - [ ] `pnpm test` passes.
 - [ ] `pnpm build` passes, including service-worker and asset-path verification.
-- [ ] `pnpm size` passes the 50 kB gzip initial-JavaScript budget.
+- [ ] `pnpm size` passes the 30 kB JavaScript, 9 kB CSS, and 40 kB combined gzip budgets.
+- [ ] `pnpm test:e2e` passes against the completed production build.
 
 ## Converter states and actions
 
@@ -31,6 +32,8 @@ Verify the displayed result as well as whether the query is accepted or rejected
 - [ ] Alternate connector and question mark: `2 HOURS as minutes?` gives `120 min`.
 - [ ] Clock-style pace: `7:00 min/mi to min/km` gives `4:21 min/km`.
 - [ ] Scientific notation: `-2.5e3 µm → mm` gives `-2.5 mm`.
+- [ ] Case-sensitive symbols: `1 MW to W` gives `1,000,000 W`; `1 Mm to km` gives `1,000 km`; `1 b to B` gives `0.125 B`.
+- [ ] Invalid grouping and clocks such as `1,5 m to cm`, `1,2,3 m to cm`, and `7:99 min/mi to min/km` are rejected.
 - [ ] Negative temperature: `−40 degrees Fahrenheit to celsius` gives `-40 °C`.
 - [ ] Unicode square symbols: `1 m² to cm2` gives `10,000 cm²`.
 - [ ] Unicode cubic symbols: `1 m³ as liters` gives `1,000 L`.
@@ -76,7 +79,7 @@ Verify the displayed result as well as whether the query is accepted or rejected
 Use browser developer tools to inspect and, in a disposable profile, edit storage.
 
 - [ ] History uses `humanunits:history:v1` and stores an array of `{ query, result }` objects.
-- [ ] Pins use `humanunits:pins:v1` and store an array of `{ from, to, query }` objects.
+- [ ] Pins use `humanunits:pins:v1` and store an array of `{ from, to, fromCategory, toCategory, query }` objects.
 - [ ] Existing valid values from the baseline load without data loss.
 - [ ] On load, evaluable history queries are normalized against current symbols and formatting.
 - [ ] On load, pin queries are reconstructed from stored `from` and `to` symbols.
@@ -108,8 +111,8 @@ Use browser developer tools to inspect and, in a disposable profile, edit storag
 - [ ] Convert uses the application root URL.
 - [ ] Browse uses `#pairs`.
 - [ ] About uses `#about`.
-- [ ] License uses `/license` beneath the configured application root.
-- [ ] Direct-loading each URL displays the correct page.
+- [ ] License uses `#license` beneath the configured application root.
+- [ ] Direct-loading each root or hash URL displays the correct page without server rewrite rules.
 - [ ] Browser Back and Forward restore the correct page and active navigation state.
 - [ ] Modified clicks retain normal browser link behavior.
 - [ ] Internal page navigation scrolls to the top.
@@ -192,4 +195,4 @@ Use browser developer tools to inspect and, in a disposable profile, edit storag
 - [ ] Record all checks actually performed and their result.
 - [ ] Record skipped checks with the missing browser, device, permission, secure context, cached baseline, or other blocker.
 - [ ] Keep screenshots outside the repository or attach them to review tooling; do not commit large image files.
-- [ ] Confirm `git diff --stat` and `git diff --name-only` contain only the intended test and checklist files.
+- [ ] Confirm `git diff --stat` and `git diff --name-only` contain only the intended release changes.

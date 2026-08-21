@@ -82,6 +82,16 @@ describe('natural-language parser', () => {
   for (const query of ['hello', '10 km', '1 kg to miles', 'NaN m to ft', '']) it(`rejects invalid query ${query}`, () => {
     assert.equal(parseQuery(query), null);
   });
+
+  it('validates grouped numbers and clock components before conversion', () => {
+    close(evaluate('1,000 m to km')?.result, 1);
+    assert.equal(evaluate('1,5 m to cm'), null);
+    assert.equal(evaluate('1,2,3 m to cm'), null);
+    assert.equal(evaluate('7:99 min/mi to min/km'), null);
+    assert.equal(evaluate('1:30 min to sec'), null);
+    const negativeClock = parseQuery('-1:30 min/mi to min/km');
+    assert.equal(formatValue(negativeClock?.value, negativeClock?.from, true), '-1:30');
+  });
 });
 
 describe('conversion engine', () => {
@@ -163,13 +173,43 @@ describe('conversion engine', () => {
     assert.equal(formatValue(longPace.result, longPace.to, longPace.clockStyle, 10), '55:55.4');
   });
 
+  it('preserves case-sensitive symbols and rejects misleading symbol plurals', () => {
+    for (const [query, expected, fromSymbol] of [
+      ['1 Mm to km', 1000, 'Mm'],
+      ['1 MHz to Hz', 1e6, 'MHz'],
+      ['1 MN to N', 1e6, 'MN'],
+      ['1 MJ to J', 1e6, 'MJ'],
+      ['1 MW to W', 1e6, 'MW'],
+      ['1 MA to A', 1e6, 'MA'],
+      ['1 MV to V', 1e6, 'MV'],
+      ['1 MΩ to Ω', 1e6, 'MΩ'],
+      ['1 MBq to Bq', 1e6, 'MBq'],
+      ['1 T to G', 10000, 'T'],
+      ['1 b to B', 0.125, 'bit'],
+    ]) {
+      const conversion = evaluate(query);
+      close(conversion?.result, expected);
+      assert.equal(conversion?.from.symbol, fromSymbol);
+    }
+    assert.equal(evaluate('1 ms to ft'), null);
+  });
+
+  it('rejects non-finite and physically invalid reciprocal inputs', () => {
+    for (const query of [
+      '0 min/mi to mph', '0 km/h to min/km', '0 mpg (US) to L/100km',
+      '0 L/100km to mpg (US)', '-1 K to c', '1e308 ly to m',
+    ]) assert.equal(evaluate(query), null, query);
+  });
+
   it('formats feet and inches as a result and accepts it as a source', () => {
     const conversion = evaluate('71 in in ft + in');
     close(conversion.result, 5 + 11 / 12);
     assert.equal(formatValue(conversion.result, conversion.to, false, 6), '5 ft 11 in');
     const height = evaluate('180 cm in ft + in');
-    assert.equal(formatValue(height.result, height.to, false, 6), '5 ft 11 in');
-    assert.equal(formatValue(height.result, height.to, false, 10), '5 ft 10.87 in');
+    assert.equal(formatValue(height.result, height.to, false, 6), '5 ft 10.866 in');
+    assert.equal(formatValue(height.result, height.to, false, 10), '5 ft 10.8661417 in');
+    assert.equal(formatValue(height.result, height.to, false, 15), '5 ft 10.866141732283 in');
+    assert.equal(formatValue(height.result, height.to, false, 17), '5 ft 10.86614173228347 in');
     assert.equal(formatValue(evaluate('-6 in in ft + in').result, conversion.to, false, 6), '-0 ft 6 in');
     close(evaluate('5 ft 11 in to cm')?.result, 180.34);
     close(evaluate(`5' 11" to cm`)?.result, 180.34);
@@ -217,8 +257,15 @@ describe('supported pairs catalog', () => {
       const expectedPairCount = Object.values(Object.groupBy(group.units, unit => unit.conversionGroup || 'linear'))
         .reduce((total, items) => total + items.filter(unit => !unit.outputOnly).length * (items.length - 1), 0);
       assert.equal(group.pairs.length, expectedPairCount);
-      assert.ok(group.pairs.every(pair => evaluate(pair.query)));
-      assert.ok(group.pairs.every(pair => evaluate(pair.query).value !== 1));
+      for (const pair of group.pairs) {
+        const conversion = evaluate(pair.query);
+        assert.ok(conversion, pair.query);
+        assert.equal(conversion.from.category, pair.from.category, pair.query);
+        assert.equal(conversion.from.symbol, pair.from.symbol, pair.query);
+        assert.equal(conversion.to.category, pair.to.category, pair.query);
+        assert.equal(conversion.to.symbol, pair.to.symbol, pair.query);
+        assert.notEqual(conversion.value, 1, pair.query);
+      }
       assert.ok(group.pairs.every(pair => !pair.from.outputOnly));
     }
     assert.equal(catalog.find(group => group.category === 'calendar duration').pairs.length, 30);

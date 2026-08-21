@@ -1,23 +1,32 @@
 {
   "name": "humanunits",
   "version": "1.0.0",
+  "description": "Fast, private, offline unit conversion in natural language",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/denaszune/humanunits.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "rsbuild dev",
     "build": "rsbuild build && node scripts/generate-service-worker.js && node scripts/verify-build.js",
     "preview": "rsbuild preview",
-    "test": "node --test src/conversion.test.js",
+    "test": "node --test src/conversion.test.js src/pins.test.js src/storage.test.js",
+    "test:e2e": "playwright test",
     "size": "node scripts/report-sizes.js"
   },
   "dependencies": {
-    "solid-js": "^1.9.14"
+    "solid-js": "^1.9.15"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1",
     "@rsbuild/core": "^2.1.13",
-    "@rsbuild/plugin-babel": "^2.0.1",
+    "@rsbuild/plugin-babel": "^2.1.0",
     "@rsbuild/plugin-solid": "^1.2.2",
-    "babel-preset-solid": "^1.9.12"
+    "babel-preset-solid": "^1.9.15"
   },
   "engines": {
     "node": ">=24"

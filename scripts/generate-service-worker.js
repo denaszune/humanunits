@@ -1,4 +1,5 @@
-import { readdir, writeFile } from 'node:fs/promises';
+import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { join, relative, sep } from 'node:path';
 
 const root = join(process.cwd(), 'dist');
@@ -11,9 +12,16 @@ async function filesIn(directory) {
 const assets = (await filesIn(root))
   .map(file => relative(root, file).split(sep).join('/'))
   .filter(file => file !== 'service-worker.js' && !file.endsWith('.map'))
+  .sort()
   .map(file => `./${file}`);
 
-const source = `const CACHE = 'humanunits-${Date.now()}';
+const cacheHash = createHash('sha256');
+for (const asset of assets) {
+  cacheHash.update(asset);
+  cacheHash.update(await readFile(join(root, asset.slice(2))));
+}
+const cacheVersion = cacheHash.digest('hex').slice(0, 12);
+const source = `const CACHE = 'humanunits-${cacheVersion}';
 const ASSETS = ${JSON.stringify(assets)};
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));

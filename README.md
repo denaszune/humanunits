@@ -46,12 +46,21 @@ pnpm dev
 
 Then open the local address shown by the development server.
 
+The browser smoke suite requires Playwright Chromium once per machine:
+
+```sh
+pnpm exec playwright install chromium
+pnpm build
+pnpm test:e2e
+```
+
 ## Commands
 
 | Command        | Purpose                                                     |
 | -------------- | ----------------------------------------------------------- |
 | `pnpm dev`     | Start the Rsbuild development server                        |
 | `pnpm test`    | Run parser and conversion-engine tests                      |
+| `pnpm test:e2e`| Run production browser, routing, storage, and offline tests  |
 | `pnpm build`   | Create the optimized production build and service worker    |
 | `pnpm preview` | Serve the completed production build locally                |
 | `pnpm size`    | Report raw and gzip sizes for production JavaScript and CSS |
@@ -62,6 +71,7 @@ Human Units deliberately keeps its architecture small and dependency-light:
 
 * `src/conversion.js` contains the framework-independent parser and conversion engine.
 * `src/App.jsx` contains the Solid interface and local-storage behavior.
+* `src/storage.js` validates all data crossing the local-storage boundary.
 * `src/styles.css` contains the responsive visual system without a CSS framework or external assets.
 * `scripts/generate-service-worker.js` inventories the production build and generates the app-shell precache.
 
@@ -104,6 +114,7 @@ Keep changes focused, accessible, and dependency-light. Add regression tests for
 pnpm test
 pnpm build
 pnpm size
+pnpm test:e2e
 ```
 
 By contributing, you agree that your changes are provided under the project’s existing license.

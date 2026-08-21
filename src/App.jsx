@@ -1,13 +1,14 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { evaluate, formatValue, pairQuery, supportedUnits } from './conversion.js';
 import { movePin, prependPin, quickReusePins, reusePinnedPair } from './pins.js';
+import { isHistoryEntry, isPinEntry, readStoredCollection, writeStoredValue } from './storage.js';
 
 const HISTORY_KEY = 'humanunits:history:v1';
 const PINS_KEY = 'humanunits:pins:v1';
 const PRECISION_KEY = 'humanunits:precision:v1';
 const examples = ['10 km in miles', '72 f to c', '5 lb to kg'];
-const appRoot = import.meta.env.BASE_PATH === './' ? '/' : import.meta.env.BASE_PATH;
-const licensePath = `${appRoot}license`;
+const appRoot = import.meta.env.BASE_PATH === './' ? new URL('./', document.baseURI).pathname : import.meta.env.BASE_PATH;
+const licensePath = `${appRoot}#license`;
 const symbolPairQuery = (from, to, value) => pairQuery(from, to, value);
 const formattedResult = (value, precision) => {
   const formatted = formatValue(value.result, value.to, value.clockStyle, precision);
@@ -73,7 +74,7 @@ function LibraryPage(props) {
               <button class="library-order" type="button" onClick={() => props.onMovePin(index(), 1)} disabled={index() === props.pins.length - 1} aria-label={`Move ${item.from} to ${item.to} down`} title="Move down">
                 <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m3.5 6 4.5 4.5L12.5 6"/></svg>
               </button>
-              <button class="library-remove" type="button" onClick={() => props.onUnpin(item.from, item.to)} aria-label={`Unpin ${item.from} to ${item.to}`} title="Unpin pair">
+              <button class="library-remove" type="button" onClick={() => props.onUnpin(item)} aria-label={`Unpin ${item.from} to ${item.to}`} title="Unpin pair">
                 <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 4 8 8m0-8-8 8"/></svg>
               </button>
             </div>
@@ -105,15 +106,8 @@ function LibraryPage(props) {
   </section>;
 }
 
-function load(key) {
-  try {
-    const value = JSON.parse(localStorage.getItem(key));
-    return Array.isArray(value) ? value : [];
-  } catch { return []; }
-}
-
 function save(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Storage can be unavailable. */ }
+  return writeStoredValue(localStorage, key, value);
 }
 
 function loadPrecision() {
@@ -124,17 +118,23 @@ function loadPrecision() {
 }
 
 export default function App() {
+  const savedPrecision = loadPrecision();
   const [query, setQuery] = createSignal('');
-  const [recentConversions, setRecentConversions] = createSignal(load(HISTORY_KEY).map(entry => {
+  const [recentConversions, setRecentConversions] = createSignal(readStoredCollection(localStorage, HISTORY_KEY, isHistoryEntry).map(entry => {
     const value = evaluate(entry.query);
-    return value ? { ...entry, query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle)) } : entry;
-  }));
-  const [pins, setPins] = createSignal(load(PINS_KEY).map(item => ({
-    ...item,
-    query: symbolPairQuery(item.from, item.to)
-  })));
+    return value ? { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle)), result: formattedResult(value, savedPrecision) } : null;
+  }).filter(Boolean));
+  const [pins, setPins] = createSignal(readStoredCollection(localStorage, PINS_KEY, isPinEntry).map(item => {
+    const from = { symbol: item.from, category: item.fromCategory };
+    const to = { symbol: item.to, category: item.toCategory };
+    const query = symbolPairQuery(from, to);
+    const value = evaluate(query);
+    return value ? { from: value.from.symbol, to: value.to.symbol, fromCategory: value.from.category, toCategory: value.to.category, query } : null;
+  }).filter(Boolean));
   const [copied, setCopied] = createSignal(false);
-  const [precision, setPrecision] = createSignal(loadPrecision());
+  const [copyError, setCopyError] = createSignal(false);
+  const [storageError, setStorageError] = createSignal(false);
+  const [precision, setPrecision] = createSignal(savedPrecision);
   const [installPrompt, setInstallPrompt] = createSignal(null);
   const [updateReady, setUpdateReady] = createSignal(false);
   const [dockSuppressed, setDockSuppressed] = createSignal(false);
@@ -157,7 +157,11 @@ export default function App() {
   let resultObserver;
   let observedResult;
   let quickReuseRef;
+  let mainRef;
   let queryDirty = false;
+  let routeReady = false;
+  let copiedTimer;
+  let copyErrorTimer;
   const titleCase = text => text.replace(/(^|\s)\S/g, letter => letter.toUpperCase());
   const categorySections = [
     ['Everyday', ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'time', 'calendar duration', 'fuel economy', 'angle', 'typography']],
@@ -177,7 +181,7 @@ export default function App() {
     if (!from) return [];
     return catalog.flatMap(group => group.units.filter(unit => isCompatible(unit, group.category)).map(unit => ({ ...unit, category: group.category })));
   });
-  const pageFromLocation = () => location.pathname.replace(/\/$/, '').endsWith('/license') ? 'license' : location.hash === '#pairs' ? 'pairs' : location.hash === '#library' ? 'library' : location.hash === '#about' ? 'about' : 'converter';
+  const pageFromLocation = () => location.hash === '#license' ? 'license' : location.hash === '#pairs' ? 'pairs' : location.hash === '#library' ? 'library' : location.hash === '#about' ? 'about' : 'converter';
   const [page, setPage] = createSignal(pageFromLocation());
   const handleLocationChange = () => setPage(pageFromLocation());
   const handleInternalLink = (event, url) => {
@@ -194,6 +198,13 @@ export default function App() {
     removeEventListener('hashchange', handleHashChange);
     removeEventListener('popstate', handleLocationChange);
   });
+  createEffect(() => {
+    const current = page();
+    const titles = { converter: 'Human Units', pairs: 'Browse Units · Human Units', library: 'Library · Human Units', about: 'About · Human Units', license: 'License · Human Units' };
+    document.title = titles[current];
+    if (routeReady) queueMicrotask(() => mainRef?.focus({ preventScroll: true }));
+    routeReady = true;
+  });
   onMount(() => {
     const offerInstall = event => {
       event.preventDefault();
@@ -209,6 +220,8 @@ export default function App() {
       removeEventListener('beforeinstallprompt', offerInstall);
       removeEventListener('appinstalled', installed);
       removeEventListener('humanunits:update-ready', offerUpdate);
+      clearTimeout(copiedTimer);
+      clearTimeout(copyErrorTimer);
     });
   });
   const conversion = createMemo(() => evaluate(query()));
@@ -358,7 +371,7 @@ export default function App() {
     const entry = { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle, precision())), result: formattedResult(value, precision()) };
     const next = [entry, ...recentConversions().filter(item => item.query !== entry.query)].slice(0, 8);
     setRecentConversions(next);
-    save(HISTORY_KEY, next);
+    persist(HISTORY_KEY, next);
     queryDirty = false;
     return true;
   }
@@ -426,7 +439,7 @@ export default function App() {
     event.stopPropagation();
     const next = recentConversions().filter(item => item.query !== queryToRemove);
     setRecentConversions(next);
-    save(HISTORY_KEY, next);
+    persist(HISTORY_KEY, next);
   }
 
   function reusePinnedQuery(item) {
@@ -436,13 +449,13 @@ export default function App() {
   function removeLibraryRecent(queryToRemove) {
     const next = recentConversions().filter(item => item.query !== queryToRemove);
     setRecentConversions(next);
-    save(HISTORY_KEY, next);
+    persist(HISTORY_KEY, next);
   }
 
-  function removeLibraryPin(from, to) {
-    const next = pins().filter(item => item.from !== from || item.to !== to);
+  function removeLibraryPin(pin) {
+    const next = pins().filter(item => item.from !== pin.from || item.to !== pin.to || item.fromCategory !== pin.fromCategory || item.toCategory !== pin.toCategory);
     setPins(next);
-    save(PINS_KEY, next);
+    persist(PINS_KEY, next);
   }
 
   function reorderLibraryPin(index, direction) {
@@ -450,12 +463,12 @@ export default function App() {
     const next = movePin(current, index, direction);
     if (next === current) return;
     setPins(next);
-    save(PINS_KEY, next);
+    persist(PINS_KEY, next);
   }
 
   function clearLibraryRecent() {
     setRecentConversions([]);
-    save(HISTORY_KEY, []);
+    persist(HISTORY_KEY, []);
   }
 
   async function install() {
@@ -472,7 +485,9 @@ export default function App() {
   function swap() {
     const value = conversion();
     if (!value || value.to.outputOnly) return;
-    const amount = value.clockStyle ? formatValue(value.result, value.to, true, 15) : String(value.result);
+    const amount = value.to.format === 'feet-inches'
+      ? formatValue(value.result, value.to, false, 17)
+      : value.clockStyle ? formatValue(value.result, value.to, true, 15) : String(value.result);
     setQuery(symbolPairQuery(value.to, value.from, amount));
     queryDirty = false;
     requestAnimationFrame(() => remember());
@@ -480,7 +495,7 @@ export default function App() {
 
   function choosePrecision(value) {
     setPrecision(value);
-    save(PRECISION_KEY, value);
+    persist(PRECISION_KEY, value);
   }
 
   async function copy() {
@@ -489,25 +504,38 @@ export default function App() {
     try {
       await navigator.clipboard.writeText(resultText());
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch { setCopied(false); }
+      setCopyError(false);
+      clearTimeout(copiedTimer);
+      copiedTimer = setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+      setCopyError(true);
+      clearTimeout(copyErrorTimer);
+      copyErrorTimer = setTimeout(() => setCopyError(false), 4000);
+    }
   }
 
   function togglePin() {
     const value = conversion();
     if (!value) return;
-    const pair = { from: value.from.symbol, to: value.to.symbol, query: symbolPairQuery(value.from, value.to) };
-    const exists = pins().some(item => item.from === pair.from && item.to === pair.to);
-    const next = exists ? pins().filter(item => item.from !== pair.from || item.to !== pair.to) : prependPin(pins(), pair);
+    const pair = { from: value.from.symbol, to: value.to.symbol, fromCategory: value.from.category, toCategory: value.to.category, query: symbolPairQuery(value.from, value.to) };
+    const exists = pins().some(item => item.from === pair.from && item.to === pair.to && item.fromCategory === pair.fromCategory && item.toCategory === pair.toCategory);
+    const next = exists ? pins().filter(item => item.from !== pair.from || item.to !== pair.to || item.fromCategory !== pair.fromCategory || item.toCategory !== pair.toCategory) : prependPin(pins(), pair);
     setPins(next);
-    save(PINS_KEY, next);
+    persist(PINS_KEY, next);
   }
 
   const pinned = createMemo(() => {
     const value = conversion();
-    return value && pins().some(item => item.from === value.from.symbol && item.to === value.to.symbol);
+    return value && pins().some(item => item.from === value.from.symbol && item.to === value.to.symbol && item.fromCategory === value.from.category && item.toCategory === value.to.category);
   });
   const quickReuse = createMemo(() => quickReusePins(pins()));
+
+  function persist(key, value) {
+    const stored = save(key, value);
+    setStorageError(!stored);
+    return stored;
+  }
 
   return <div class="app-shell" classList={{ 'convert-shell': page() === 'converter', 'dock-suppressed': dockSuppressed() }}>
     <header class="site-header">
@@ -531,7 +559,9 @@ export default function App() {
       </div>
     </header>
 
-    <main classList={{ 'convert-main': page() === 'converter' }}>
+    <Show when={storageError()}><p class="storage-warning" role="alert">This browser blocked local storage. Your pins, history, and precision changes will not survive a reload.</p></Show>
+
+    <main ref={mainRef} tabindex="-1" aria-labelledby={page() === 'pairs' ? 'browse-title' : `${page()}-title`} classList={{ 'convert-main': page() === 'converter' }}>
       <Show when={page() === 'converter'} fallback={<Show when={page() === 'pairs'} fallback={<Show when={page() === 'library'} fallback={<Show when={page() === 'about'} fallback={<LicensePage />}><AboutPage onNavigate={handleInternalLink} /></Show>}><LibraryPage pins={pins()} recents={recentConversions()} onReuse={chooseBrowseQuery} onReusePin={reusePinnedQuery} onMovePin={reorderLibraryPin} onUnpin={removeLibraryPin} onRemoveRecent={removeLibraryRecent} onClear={clearLibraryRecent} /></Show>}>
         <section class="browse-page" aria-labelledby="browse-title">
           <header class="secondary-page-heading">
@@ -566,7 +596,7 @@ export default function App() {
       <section class="hero" aria-label="Unit converter">
         <div class="converter-composer" classList={{ invalid: query().trim() && !conversion() }}>
           <form onSubmit={submit} class="converter" role="search">
-            <div class="converter-heading"><label for="conversion-input">What would you like to convert?</label></div>
+            <h1 id="converter-title" class="converter-heading"><label for="conversion-input">What would you like to convert?</label></h1>
             <div class="input-wrap">
               <input ref={conversionInput} id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); queryDirty = true; }} onBlur={() => { if (queryDirty) remember(); }} onKeyDown={event => { if (event.key === 'Escape' && query()) { event.preventDefault(); clearQuery(); } }}
                 inputmode="text" enterkeyhint="done" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="10 km in miles" aria-describedby="input-hint" />
@@ -584,15 +614,16 @@ export default function App() {
             </div>
             <div ref={resultDisplay} class="result" aria-live="polite" aria-atomic="true">
               <Show when={conversion()} fallback={<span class="empty-result">{query().trim() ? 'Enter a complete conversion, such as 10 km in miles.' : 'Your result appears here.'}</span>}>
-                <strong>{formatValue(conversion().result, conversion().to, conversion().clockStyle, precision())}</strong> <Show when={!conversion().to.formatIncludesUnit}><span>{conversion().to.symbol}</span></Show>
+                <strong classList={{ 'compound-value': conversion().to.format === 'feet-inches' }}>{formatValue(conversion().result, conversion().to, conversion().clockStyle, precision())}</strong> <Show when={!conversion().to.formatIncludesUnit}><span>{conversion().to.symbol}</span></Show>
               </Show>
             </div>
             <Show when={conversion()}>
               <div class="actions">
                 <button type="button" onClick={swap} aria-label="Swap units using full precision"><span aria-hidden="true">⇄</span> Swap</button>
-                <button type="button" onClick={copy}><span aria-hidden="true">□</span> {copied() ? 'Copied!' : 'Copy result'}</button>
+                <button type="button" onClick={copy}><span aria-hidden="true"><svg class="button-icon" viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></span> {copied() ? 'Copied!' : 'Copy result'}</button>
                 <button type="button" onClick={togglePin} aria-pressed={pinned()}><span aria-hidden="true">{pinned() ? '★' : '☆'}</span> {pinned() ? 'Pinned' : 'Pin pair'}</button>
               </div>
+              <Show when={copyError()}><p class="action-status" role="status">Could not copy the result. Check clipboard permission and try again.</p></Show>
             </Show>
           </div>
         </div>

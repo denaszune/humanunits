@@ -1,11 +1,24 @@
 const units = [];
 
-const words = text => text.toLowerCase().replace(/[−–—]/g, '-').replace(/µ/g, 'u').replace(/²/g, '2').replace(/³/g, '3').replace(/·/g, ' ').replace(/\s+/g, ' ').trim();
-const names = (name, symbol, extra = []) => [...new Set([name, symbol, ...extra].flatMap(value => [value, `${value}s`]).map(words))];
+const syntax = text => String(text).normalize('NFKC').replace(/[−–—]/g, '-').replace(/[µμ]/g, 'u').replace(/·/g, ' ').replace(/\s+/g, ' ').trim();
+const words = text => syntax(text).toLowerCase();
+const names = (name, extra = []) => [...new Set([name, ...extra].flatMap(value => [value, `${value}s`]).map(words))];
+
+function unitDefinition(category, symbol, name, properties, extra = []) {
+  const matchAliases = names(name, extra);
+  return {
+    category,
+    symbol,
+    name,
+    ...properties,
+    matchAliases,
+    aliases: [...new Set([words(symbol), ...matchAliases])],
+  };
+}
 
 function add(category, entries) {
   for (const [symbol, name, factor, extra = []] of entries) {
-    units.push({ category, symbol, name, factor, aliases: names(name, symbol, extra) });
+    units.push(unitDefinition(category, symbol, name, { factor }, extra));
   }
 }
 
@@ -19,7 +32,7 @@ add('area', [['mm²','square millimeter',1e-6,['mm2']],['cm²','square centimete
 add('volume', [['µL','microliter',1e-6],['mL','milliliter',.001],['cL','centiliter',.01],['dL','deciliter',.1],['L','liter',1,['litre']],['m³','cubic meter',1000,['m3']],['cm³','cubic centimeter',.001,['cm3','cc']],['mm³','cubic millimeter',1e-6,['mm3']],['in³','cubic inch',.016387064,['in3']],['ft³','cubic foot',28.316846592,['ft3']],['yd³','cubic yard',764.554857984,['yd3']],['tsp (US)','US teaspoon',.00492892159375,['tsp']],['tbsp (US)','US tablespoon',.01478676478125,['tbsp']],['fl oz (US)','US fluid ounce',.0295735295625,['fl oz']],['cup (US)','US cup',.2365882365,['cup']],['pt (US)','US liquid pint',.473176473,['pint']],['qt (US)','US liquid quart',.946352946,['quart']],['gal (US)','US liquid gallon',3.785411784,['gallon','gal']],['fl oz (Imp)','Imperial fluid ounce',.0284130625],['gill (Imp)','Imperial gill',.1420653125],['pt (Imp)','Imperial pint',.56826125],['qt (Imp)','Imperial quart',1.1365225],['gal (Imp)','Imperial gallon',4.54609],['tsp (metric)','metric teaspoon',.005],['tbsp (metric)','metric tablespoon',.015],['cup (metric)','metric cup',.25],['tbsp (AU)','Australian tablespoon',.02],['dry pt (US)','US dry pint',.5506104713575],['dry qt (US)','US dry quart',1.101220942715],['dry gal (US)','US dry gallon',4.40488377086],['pk','US peck',8.80976754172],['bu','US bushel',35.23907016688],['bbl (oil)','oil barrel',158.987294928]]);
 add('mass', [['µg','microgram',1e-6],['mg','milligram',.001],['cg','centigram',.01],['g','gram',1],['dag','decagram',10],['hg','hectogram',100],['kg','kilogram',1000,['kilo']],['t','tonne',1e6,['metric ton']],['ct','carat',.2],['gr','grain',.06479891],['dr','avoirdupois dram',1.7718451953125],['oz','avoirdupois ounce',28.349523125,['ounce']],['lb','pound',453.59237],['st','stone',6350.29318],['cwt (US)','US hundredweight',45359.237],['cwt (Imp)','Imperial hundredweight',50802.34544],['ton (US)','short ton',907184.74,['ton']],['ton (Imp)','long ton',1016046.9088],['oz t','troy ounce',31.1034768],['lb t','troy pound',373.2417216]]);
 
-function affine(symbol, name, toBase, fromBase, extra = []) { units.push({ category:'temperature', symbol, name, aliases:names(name,symbol,extra), toBase, fromBase }); }
+function affine(symbol, name, toBase, fromBase, extra = []) { units.push(unitDefinition('temperature', symbol, name, { toBase, fromBase }, extra)); }
 affine('K','kelvin',v=>v,v=>v);
 affine('°C','degree Celsius',v=>v+273.15,v=>v-273.15,['celsius','c']);
 affine('°F','degree Fahrenheit',v=>(v+459.67)*5/9,v=>v*9/5-459.67,['fahrenheit','f']);
@@ -49,12 +62,11 @@ add('mass flow', [['kg/s','kilogram per second',1],['kg/min','kilogram per minut
 add('dynamic viscosity', [['Pa·s','pascal-second',1],['mPa·s','millipascal-second',.001],['P','poise',.1],['cP','centipoise',.001],['lb/(ft·s)','pound per foot-second',1.48816394357],['lb/(ft·h)','pound per foot-hour',1.48816394357/3600]]);
 add('kinematic viscosity', [['m²/s','square meter per second',1,['m2/s']],['mm²/s','square millimeter per second',1e-6,['mm2/s']],['St','stokes',1e-4],['cSt','centistokes',1e-6],['ft²/s','square foot per second',.09290304,['ft2/s']],['in²/s','square inch per second',.00064516,['in2/s']]]);
 
-const decimalBytes = [['bit','bit',1/8],['nibble','nibble',.5],['B','byte',1],...['kMGTPEZYRQ'].map(()=>[])];
-add('digital storage', [['bit','bit',.125],['nibble','nibble',.5],['B','byte',1],...['kB','MB','GB','TB','PB','EB','ZB','YB','RB','QB'].map((s,i)=>[s,`${['kilo','mega','giga','tera','peta','exa','zetta','yotta','ronna','quetta'][i]}byte`,10**((i+1)*3)]),...['KiB','MiB','GiB','TiB','PiB','EiB','ZiB','YiB','RiB','QiB'].map((s,i)=>[s,`${['kibi','mebi','gibi','tebi','pebi','exbi','zebi','yobi','robi','quebi'][i]}byte`,2**((i+1)*10)])]);
-add('data rate', [['bit/s','bit per second',1],['B/s','byte per second',8],...['kbit/s','Mbit/s','Gbit/s','Tbit/s','Pbit/s'].map((s,i)=>[s,`${['kilo','mega','giga','tera','peta'][i]}bit per second`,10**((i+1)*3)]),...['kB/s','MB/s','GB/s','TB/s'].map((s,i)=>[s,`${['kilo','mega','giga','tera'][i]}byte per second`,8*10**((i+1)*3)]),...['Kibit/s','Mibit/s','Gibit/s','Tibit/s','Pibit/s','Eibit/s','Zibit/s','Yibit/s'].flatMap((s,i)=>[[s,`${['kibi','mebi','gibi','tebi','pebi','exbi','zebi','yobi'][i]}bit per second`,2**((i+1)*10)],[s.replace('bit','B'),`${['kibi','mebi','gibi','tebi','pebi','exbi','zebi','yobi'][i]}byte per second`,8*2**((i+1)*10)]])]);
+add('digital storage', [['bit','bit',.125,['b']],['nibble','nibble',.5],['B','byte',1],...['kB','MB','GB','TB','PB','EB','ZB','YB','RB','QB'].map((s,i)=>[s,`${['kilo','mega','giga','tera','peta','exa','zetta','yotta','ronna','quetta'][i]}byte`,10**((i+1)*3)]),...['KiB','MiB','GiB','TiB','PiB','EiB','ZiB','YiB','RiB','QiB'].map((s,i)=>[s,`${['kibi','mebi','gibi','tebi','pebi','exbi','zebi','yobi','robi','quebi'][i]}byte`,2**((i+1)*10)])]);
+add('data rate', [['bit/s','bit per second',1,['b/s']],['B/s','byte per second',8],...['kbit/s','Mbit/s','Gbit/s','Tbit/s','Pbit/s'].map((s,i)=>[s,`${['kilo','mega','giga','tera','peta'][i]}bit per second`,10**((i+1)*3)]),...['kB/s','MB/s','GB/s','TB/s'].map((s,i)=>[s,`${['kilo','mega','giga','tera'][i]}byte per second`,8*10**((i+1)*3)]),...['Kibit/s','Mibit/s','Gibit/s','Tibit/s','Pibit/s','Eibit/s','Zibit/s','Yibit/s'].flatMap((s,i)=>[[s,`${['kibi','mebi','gibi','tebi','pebi','exbi','zebi','yobi'][i]}bit per second`,2**((i+1)*10)],[s.replace('bit','B'),`${['kibi','mebi','gibi','tebi','pebi','exbi','zebi','yobi'][i]}byte per second`,8*2**((i+1)*10)]])]);
 
 // Fuel economy uses liters per 100 km as a reciprocal base.
-function fuel(symbol,name,toBase,fromBase,extra=[]) { units.push({category:'fuel economy',symbol,name,aliases:names(name,symbol,extra),toBase,fromBase}); }
+function fuel(symbol,name,toBase,fromBase,extra=[]) { units.push(unitDefinition('fuel economy', symbol, name, { toBase, fromBase }, extra)); }
 fuel('L/100km','liters per 100 kilometers',v=>v,v=>v);
 fuel('km/L','kilometers per liter',v=>100/v,v=>100/v);
 fuel('mpg (US)','miles per US gallon',v=>235.214583/v,v=>235.214583/v,['mpg']);
@@ -93,7 +105,7 @@ add('thermal resistance', [['m²·K/W','square meter-kelvin per watt',1,['m2 k/w
 add('typography', [['pt','PostScript point',1/72],['pc','pica',1/6],['px','CSS reference pixel',1/96],['Q','CSS quarter-millimeter',.25/25.4],['mm','millimeter',1/25.4],['cm','centimeter',1/2.54],['in','inch',1]]);
 add('pixel density', [['ppi','pixels per inch',1],['dpi','dots per inch',1],['px/cm','pixels per centimeter',2.54],['dpcm','dots per centimeter',2.54]]);
 add('symbol rate', [['Bd','baud',1],['kBd','kilobaud',1e3],['MBd','megabaud',1e6],['GBd','gigabaud',1e9]]);
-add('information content', [['bit','bit (information)',1],['nat','nat',1/Math.LN2],['Hart','hartley',Math.LOG2E*Math.LN10]]);
+add('information content', [['bit','bit (information)',1,['b']],['nat','nat',1/Math.LN2],['Hart','hartley',Math.LOG2E*Math.LN10]]);
 
 // Only genuinely compatible logarithmic quantities share a conversion group.
 add('sound level', [['dB','decibel ratio',1],['Np','neper ratio',20/Math.LN10]]);
@@ -112,9 +124,16 @@ add('calendar duration', [['month','calendar month',1/12],['quarter','calendar q
 add('temperature difference', [['K Δ','kelvin difference',1,['delta k']],['°C Δ','Celsius difference',1,['delta c']],['°F Δ','Fahrenheit difference',5/9,['delta f']],['°R Δ','Rankine difference',5/9,['delta r']]]);
 
 const byAlias = new Map();
-for (const unit of units) for (const alias of unit.aliases) {
+const byExactSymbol = new Map();
+const byFoldedSymbol = new Map();
+const addMatch = (map, key, unit) => map.set(key, [...(map.get(key) || []), unit]);
+for (const unit of units) {
+  addMatch(byExactSymbol, syntax(unit.symbol), unit);
+  addMatch(byFoldedSymbol, words(unit.symbol), unit);
+  for (const alias of unit.matchAliases) {
   const matches = byAlias.get(alias) || [];
   matches.push(unit); byAlias.set(alias, matches);
+  }
 }
 
 const popularCategoryOrder = ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'time', 'digital storage', 'energy', 'pressure', 'power', 'fuel economy'];
@@ -167,6 +186,43 @@ const sourceDefaults = new Map(Object.entries({
 const unitSymbol = unit => typeof unit === 'string' ? unit : unit?.symbol;
 const pairIsCompatible = (from, to) => from.category === to.category && from.conversionGroup === to.conversionGroup || from.conversionGroup === 'pace-speed' && to.conversionGroup === 'pace-speed';
 
+function unitCandidates(text) {
+  let raw = syntax(text).replace(/^degrees?\s+/i, '');
+  let requestedCategory;
+  const qualifier = raw.match(/^(.*?)\s+\(([^()]+)\)$/);
+  if (qualifier && units.some(unit => words(unit.category) === words(qualifier[2]))) {
+    raw = qualifier[1];
+    requestedCategory = words(qualifier[2]);
+  }
+  const candidates = new Map();
+  const include = (matches, rank) => {
+    for (const unit of matches || []) {
+      if (requestedCategory && words(unit.category) !== requestedCategory) continue;
+      const current = candidates.get(unit);
+      if (current === undefined || rank < current) candidates.set(unit, rank);
+    }
+  };
+  include(byExactSymbol.get(raw), 0);
+  include(byAlias.get(words(raw)), 1);
+  include(byFoldedSymbol.get(words(raw)), 2);
+  return [...candidates].map(([unit, rank]) => ({ unit, rank }));
+}
+
+function resolveTextPair(fromText, toText, fromOverride, toOverride) {
+  const fromMatches = fromOverride ? [{ unit: fromOverride, rank: 0 }] : unitCandidates(fromText);
+  const toMatches = toOverride ? [{ unit: toOverride, rank: 0 }] : unitCandidates(toText);
+  const candidates = fromMatches.flatMap(from => toMatches
+    .filter(to => pairIsCompatible(from.unit, to.unit))
+    .map(to => ({ from: from.unit, to: to.unit, score: from.rank + to.rank })));
+  if (!candidates.length) return null;
+  const categoryRank = category => {
+    const rank = popularCategoryOrder.indexOf(category);
+    return rank < 0 ? popularCategoryOrder.length : rank;
+  };
+  candidates.sort((a, b) => a.score - b.score || categoryRank(a.from.category) - categoryRank(b.from.category));
+  return candidates[0];
+}
+
 function resolvePair(from, to) {
   const fromSymbol = unitSymbol(from), toSymbol = unitSymbol(to);
   const fromCategory = typeof from === 'object' ? from?.category : undefined;
@@ -187,13 +243,19 @@ export function defaultPairValue(from, to) {
 
 export function pairQuery(from, to, value = defaultPairValue(from, to)) {
   const pair = resolvePair(from, to);
+  const possiblePairs = pair ? units.filter(candidate => candidate.symbol === pair.from.symbol)
+    .flatMap(source => units.filter(candidate => candidate.symbol === pair.to.symbol && pairIsCompatible(source, candidate))) : [];
+  const qualifyPair = possiblePairs.length > 1;
+  const token = unit => qualifyPair ? `${unit.symbol} (${unit.category})` : unit.symbol;
+  const fromToken = pair ? token(pair.from) : unitSymbol(from);
+  const toToken = pair ? token(pair.to) : unitSymbol(to);
   if (pair?.from.format === 'feet-inches') {
     const amount = typeof value === 'string' && /\bft\b.*\bin\b/i.test(value)
       ? value.trim()
       : formatValue(Number(value), pair.from, false, 15);
-    return `${amount} to ${unitSymbol(to)}`;
+    return `${amount} to ${toToken}`;
   }
-  return `${value} ${unitSymbol(from)} in ${unitSymbol(to)}`;
+  return `${value} ${fromToken} in ${toToken}`;
 }
 
 export function supportedUnits() {
@@ -222,40 +284,47 @@ export function supportedPairs() {
   });
 }
 
+const decimalPattern = '(?:(?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d*)?|\\.\\d+)';
+const numericPattern = `[+-]?(?:(?:\\d+:)?\\d+(?::\\d+(?:\\.\\d*)?)?|${decimalPattern}(?:e[+-]?\\d+)?)`;
+
 export function parseQuery(input) {
-  const normalized = input.trim().replace(/[−–—]/g, '-').replace(/,/g, '');
-  const compound = normalized.match(/^([+-]?)(\d+(?:\.\d*)?|\.\d+)\s*(?:ft|foot|feet|')\s*(\d+(?:\.\d*)?|\.\d+)\s*(?:in(?:ch(?:es)?)?|")\s+(?:in(?:to)?|to|as|→)\s+(.+?)\s*\??$/i);
-  const compoundValue = compound ? (compound[1] === '-' ? -1 : 1) * (Number(compound[2]) + Number(compound[3]) / 12) : undefined;
+  if (typeof input !== 'string') return null;
+  const normalized = input.trim().replace(/[−–—]/g, '-');
+  const compound = normalized.match(new RegExp(`^([+-]?)(${decimalPattern})\\s*(?:ft|foot|feet|')\\s*(${decimalPattern})\\s*(?:in(?:ch(?:es)?)?|\")\\s+(?:in(?:to)?|to|as|→)\\s+(.+?)\\s*\\??$`, 'i'));
+  const numberFromToken = token => Number(token.replace(/,/g, ''));
+  const compoundValue = compound ? (compound[1] === '-' ? -1 : 1) * (numberFromToken(compound[2]) + numberFromToken(compound[3]) / 12) : undefined;
   const match = compound
     ? [compound[0], String(compoundValue), 'ft + in', compound[4]]
-    : normalized.match(/^([+-]?(?:(?:\d+:)?\d+(?::\d+(?:\.\d*)?)?|(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?))\s+(.+?)\s+(?:in(?:to)?|to|as|→)\s+(.+?)\s*\??$/i);
+    : normalized.match(new RegExp(`^(${numericPattern})\\s+(.+?)\\s+(?:in(?:to)?|to|as|→)\\s+(.+?)\\s*\\??$`, 'i'));
   if (!match) return null;
   const clean = value => words(value).replace(/^degrees?\s+/, '');
-  const clockParts = match[1].split(':').map(Number);
-  const clockValue = clockParts.reduce((total, part) => total * 60 + part, 0);
-  const paceUnit = (text, clockInput = false) => {
+  const clockInput = match[1].includes(':');
+  const clockSign = match[1].startsWith('-') ? -1 : 1;
+  const clockParts = match[1].replace(/^[+-]/, '').split(':').map(Number);
+  if (clockInput && clockParts.slice(1).some(part => part >= 60)) return null;
+  const clockValue = clockSign * clockParts.reduce((total, part) => total * 60 + part, 0);
+  const paceUnit = (text, clockStyle = false) => {
     const pace = clean(text).match(/^(?:(s|sec|second|min|minute|h|hr|hour)\s*)?\/\s*(?:(\d+(?:\.\d+)?)\s*)?(.+)$/);
     if (!pace) return null;
     const distance = Number(pace[2] || 1);
-    const length = (byAlias.get(clean(pace[3])) || []).find(unit => unit.category === 'length');
+    const length = unitCandidates(pace[3]).map(candidate => candidate.unit).find(unit => unit.category === 'length');
     if (!length || !Number.isFinite(distance) || distance <= 0) return null;
-    const timeSymbol = pace[1] || (clockInput || distance * length.factor <= 500 ? 'sec' : 'min');
+    const timeSymbol = pace[1] || (clockStyle || distance * length.factor <= 500 ? 'sec' : 'min');
     const seconds = /^(?:h|hr|hour)$/.test(timeSymbol) ? 3600 : /^(?:min|minute)$/.test(timeSymbol) ? 60 : 1;
     const distanceSymbol = `${pace[2] ? `${pace[2]} ` : ''}${length.symbol}`;
     return { category: 'pace', conversionGroup: 'pace-speed', symbol: `${pace[1] ? `${pace[1]}/` : '/'}${distanceSymbol}`, name: `${timeSymbol} per ${distanceSymbol}`, factor: seconds / (distance * length.factor) };
   };
-  const fromPace = paceUnit(match[2], match[1].includes(':'));
+  const fromPace = paceUnit(match[2], clockInput);
   const toPace = paceUnit(match[3]);
-  const fromMatches = fromPace ? [fromPace] : byAlias.get(clean(match[2])) || [];
-  const toMatches = toPace ? [toPace] : byAlias.get(clean(match[3])) || [];
-  const candidates = fromMatches.filter(from => !from.outputOnly).flatMap(from => toMatches.filter(to => pairIsCompatible(from, to)).map(to => ({from,to})));
-  if (!candidates.length) return null;
-  const {from,to} = candidates[0];
+  const pair = resolveTextPair(match[2], match[3], fromPace, toPace);
+  if (!pair || pair.from.outputOnly) return null;
+  const { from, to } = pair;
+  if (clockInput && from.category !== 'pace') return null;
   const clockUnitSeconds = from.category === 'pace'
     ? /^(?:min)\//.test(from.symbol) ? 60 : /^(?:h)\//.test(from.symbol) ? 3600 : 1
     : 1;
-  const value = compound ? compoundValue : match[1].includes(':') ? clockValue / clockUnitSeconds : Number(match[1]);
-  return Number.isFinite(value) ? { value, from, to, clockStyle: match[1].includes(':') } : null;
+  const value = compound ? compoundValue : clockInput ? clockValue / clockUnitSeconds : numberFromToken(match[1]);
+  return Number.isFinite(value) ? { value, from, to, clockStyle: clockInput } : null;
 }
 
 export function convert(value, from, to) {
@@ -266,17 +335,30 @@ export function convert(value, from, to) {
   const compatibleBase = paceToSpeed ? 1 / base : base;
   return to.fromBase ? to.fromBase(compatibleBase) : compatibleBase / to.factor;
 }
-export function evaluate(input) { const parsed=parseQuery(input); return parsed ? {...parsed,result:convert(parsed.value,parsed.from,parsed.to)} : null; }
-export function formatNumber(value, maximumSignificantDigits = 10) { if(!Number.isFinite(value))return String(value);if(Object.is(value,-0))value=0;const magnitude=Math.abs(value);if(magnitude!==0&&(magnitude>=1e12||magnitude<1e-4)){const [c,e]=value.toExponential(Math.max(0,maximumSignificantDigits-1)).split('e');return `${c.replace(/\.?0+$/,'')}e${e}`;}return new Intl.NumberFormat('en-US',{maximumSignificantDigits}).format(value); }
+export function evaluate(input) {
+  const parsed = parseQuery(input);
+  if (!parsed) return null;
+  if (parsed.from.category === 'temperature' && parsed.from.toBase(parsed.value) < 0) return null;
+  if ((parsed.from.category === 'fuel economy' || parsed.from.category === 'pace') && parsed.value <= 0) return null;
+  const result = convert(parsed.value, parsed.from, parsed.to);
+  if (!Number.isFinite(result) || parsed.to.category === 'pace' && result <= 0) return null;
+  return { ...parsed, result };
+}
+const numberFormatters = new Map();
+export function formatNumber(value, maximumSignificantDigits = 10) { if(!Number.isFinite(value))return String(value);if(Object.is(value,-0))value=0;const magnitude=Math.abs(value);if(magnitude!==0&&(magnitude>=1e12||magnitude<1e-4)){const [c,e]=value.toExponential(Math.max(0,maximumSignificantDigits-1)).split('e');return `${c.replace(/\.?0+$/,'')}e${e}`;}if(!numberFormatters.has(maximumSignificantDigits))numberFormatters.set(maximumSignificantDigits,new Intl.NumberFormat('en-US',{maximumSignificantDigits}));return numberFormatters.get(maximumSignificantDigits).format(value); }
 export function formatValue(value, unit, clockStyle = false, maximumSignificantDigits = 10) {
   if (unit?.format === 'feet-inches' && Number.isFinite(value)) {
     const sign = value < 0 ? '-' : '';
-    const fractionalDigits = maximumSignificantDigits <= 6 ? 0 : maximumSignificantDigits <= 10 ? 2 : 5;
-    const factor = 10 ** fractionalDigits;
-    const totalInches = Math.round(Math.abs(value) * 12 * factor) / factor;
-    const feet = Math.floor(totalInches / 12);
-    const inches = totalInches - feet * 12;
-    const formattedInches = fractionalDigits ? inches.toFixed(fractionalDigits).replace(/\.?0+$/, '') : inches.toFixed(0);
+    const totalInches = Math.abs(value) * 12;
+    let feet = Math.floor(totalInches / 12);
+    const feetDigits = feet ? Math.floor(Math.log10(feet)) + 1 : 0;
+    const inchDigits = Math.max(1, maximumSignificantDigits - feetDigits);
+    let inches = Number((totalInches - feet * 12).toPrecision(inchDigits));
+    if (inches >= 12) {
+      feet += 1;
+      inches = 0;
+    }
+    const formattedInches = formatNumber(inches, inchDigits);
     return `${sign}${feet} ft ${formattedInches} in`;
   }
   if (!clockStyle || unit?.category !== 'pace' || !Number.isFinite(value)) return formatNumber(value, maximumSignificantDigits);

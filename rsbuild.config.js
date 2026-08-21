@@ -23,8 +23,10 @@ export default defineConfig({
     meta: {
       description: 'Fast, private, offline unit conversion in natural language',
       'theme-color': '#123c34',
+      referrer: 'no-referrer',
     },
     tags: [
+      { tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: "default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; media-src 'none'; manifest-src 'self'; connect-src 'self'; worker-src 'self'; child-src 'none'; frame-src 'none'; form-action 'self'" }, head: true },
       { tag: 'link', attrs: { rel: 'manifest', href: 'manifest.webmanifest' }, head: true },
       { tag: 'link', attrs: { rel: 'icon', href: 'icon-any.323fef38.svg', type: 'image/svg+xml' }, head: true },
       { tag: 'link', attrs: { rel: 'icon', href: 'favicon-32.b4790ade.png', type: 'image/png', sizes: '32x32' }, head: true },

@@ -1,9 +1,20 @@
 import { access, readFile, readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
 const root = join(process.cwd(), 'dist');
 const base = process.env.BASE_PATH || './';
 const html = await readFile(join(root, 'index.html'), 'utf8');
+
+for (const required of [
+  '<meta name="referrer" content="no-referrer">',
+  '<meta http-equiv="Content-Security-Policy"',
+  "default-src 'self'",
+  "object-src 'none'",
+  "script-src 'self'",
+]) {
+  if (!html.includes(required)) throw new Error(`Built HTML is missing required security metadata: ${required}`);
+}
 
 const htmlAssets = [
   'manifest.webmanifest',
@@ -32,6 +43,9 @@ for (const asset of htmlAssets) {
 }
 
 const manifest = JSON.parse(await readFile(join(root, 'manifest.webmanifest'), 'utf8'));
+for (const [field, expected] of Object.entries({ id: './', start_url: './', scope: './', display: 'standalone', lang: 'en-US', dir: 'ltr' })) {
+  if (manifest[field] !== expected) throw new Error(`Manifest ${field} must equal ${expected}`);
+}
 for (const asset of manifestAssets) {
   if (!manifest.icons?.some(icon => icon.src === asset)) {
     throw new Error(`Built manifest does not reference ${asset}`);
@@ -60,6 +74,15 @@ const serviceWorker = await readFile(join(root, 'service-worker.js'), 'utf8');
 const precache = JSON.parse(serviceWorker.match(/const ASSETS = (\[[^;]+\]);/)?.[1] || 'null');
 if (!Array.isArray(precache) || precache.includes('./') || !precache.includes('./index.html')) {
   throw new Error('Service worker must precache only the canonical index.html application shell');
+}
+const expectedCacheHash = createHash('sha256');
+for (const asset of precache) {
+  expectedCacheHash.update(asset);
+  expectedCacheHash.update(await readFile(join(root, asset.slice(2))));
+}
+const expectedCache = `humanunits-${expectedCacheHash.digest('hex').slice(0, 12)}`;
+if (!serviceWorker.includes(`const CACHE = '${expectedCache}'`)) {
+  throw new Error('Service-worker cache version must include the contents of every precached asset');
 }
 if (!serviceWorker.includes("event.request.mode === 'navigate'") ||
     !serviceWorker.includes("caches.match('./index.html').then(cached => cached || fetch(event.request))")) {
