@@ -5,15 +5,26 @@ import { join } from 'node:path';
 const root = join(process.cwd(), 'dist');
 const base = process.env.BASE_PATH || './';
 const html = await readFile(join(root, 'index.html'), 'utf8');
+const productionOrigin = 'https://humanunits.com';
 
 for (const required of [
+  '<title>Human Units — Fast, Private Unit Converter</title>',
+  '<h1>Fast, private unit conversion</h1>',
+  'Convert 500+ everyday, scientific, computing, and specialist units',
   '<meta name="referrer" content="no-referrer">',
+  '<meta name="robots" content="index, follow">',
   '<meta http-equiv="Content-Security-Policy"',
   "default-src 'self'",
   "object-src 'none'",
   "script-src 'self'",
+  `<link rel="canonical" href="${productionOrigin}/">`,
+  `<meta property="og:url" content="${productionOrigin}/">`,
+  '<script type="application/ld+json">',
 ]) {
-  if (!html.includes(required)) throw new Error(`Built HTML is missing required security metadata: ${required}`);
+  if (!html.includes(required)) throw new Error(`Built HTML is missing required production metadata: ${required}`);
+}
+if (html.includes('denaszune.github.io/humanunits')) {
+  throw new Error('Built HTML still references the legacy GitHub Pages origin');
 }
 
 const htmlAssets = [
@@ -75,6 +86,9 @@ const precache = JSON.parse(serviceWorker.match(/const ASSETS = (\[[^;]+\]);/)?.
 if (!Array.isArray(precache) || precache.includes('./') || !precache.includes('./index.html')) {
   throw new Error('Service worker must precache only the canonical index.html application shell');
 }
+for (const excluded of ['./_headers', './_redirects', './robots.txt', './sitemap.xml']) {
+  if (precache.includes(excluded)) throw new Error(`Service worker must not precache deployment/discovery file ${excluded}`);
+}
 const expectedCacheHash = createHash('sha256');
 for (const asset of precache) {
   expectedCacheHash.update(asset);
@@ -106,4 +120,29 @@ if (sources.some(source => source.includes('React.createElement'))) {
   throw new Error('Solid JSX was compiled as React.createElement');
 }
 
-console.log('Verified GitHub Pages asset paths and Solid JSX output.');
+const headers = (await readFile(join(root, '_headers'), 'utf8')).replaceAll('\r\n', '\n');
+for (const required of [
+  '/static/*\n  Cache-Control: public, max-age=31536000, immutable',
+  '/icon-*\n  Cache-Control: public, max-age=31536000, immutable',
+  '/favicon-*\n  Cache-Control: public, max-age=31536000, immutable',
+  '/apple-touch-*\n  Cache-Control: public, max-age=31536000, immutable',
+  '/\n  Cache-Control: public, max-age=0, must-revalidate',
+  '/index.html\n  Cache-Control: public, max-age=0, must-revalidate',
+  '/manifest.webmanifest\n  Cache-Control: public, max-age=0, must-revalidate',
+  '/service-worker.js\n  Cache-Control: no-cache, no-store, must-revalidate',
+  'https://staging.humanunits.com/*\n  X-Robots-Tag: noindex, nofollow',
+  "frame-ancestors 'none'",
+]) {
+  if (!headers.includes(required)) throw new Error(`Cloudflare Pages headers are missing: ${required}`);
+}
+
+const robots = await readFile(join(root, 'robots.txt'), 'utf8');
+if (!robots.includes(`Sitemap: ${productionOrigin}/sitemap.xml`)) {
+  throw new Error('robots.txt does not advertise the production sitemap');
+}
+const sitemap = await readFile(join(root, 'sitemap.xml'), 'utf8');
+if (!sitemap.includes(`<loc>${productionOrigin}/</loc>`)) {
+  throw new Error('Sitemap does not contain the production canonical URL');
+}
+
+console.log(`Verified ${base === './' ? 'domain-root' : base} asset paths, Cloudflare metadata, PWA files, and Solid JSX output.`);

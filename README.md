@@ -4,7 +4,7 @@
 
 Type a conversion such as `10 km in miles`, `72 °F to °C`, or `7:30 min/mi in min/km` and get the result immediately.
 
-**[Open Human Units →](https://denaszune.github.io/humanunits/)**
+**[Open Human Units →](https://humanunits.com/)**
 
 Human Units supports 507 units and result formats across 59 everyday, scientific, computing, and specialist categories. It works offline, requires no account, and includes no advertising, analytics, tracking, or third-party services.
 
@@ -37,7 +37,7 @@ Aliases, scientific notation, Unicode symbols, compound units, and clock-style p
 
 ## Run locally
 
-Requires a current Node.js LTS release and [pnpm](https://pnpm.io/).
+Requires Node.js 24 and pnpm 11.22.0.
 
 ```sh
 pnpm install
@@ -96,15 +96,17 @@ pnpm preview
 
 ## Deployment
 
-Production assets use relative URLs by default, allowing the same build to run at `/` or in a subdirectory such as `/humanunits/` on GitHub Pages.
+Production deploys from `main` to `https://humanunits.com` through Cloudflare Pages' native GitHub integration. The permanent `staging` branch deploys to `https://staging.humanunits.com`, and pull requests receive preview deployments.
 
-Set an explicit base path when required:
+The Cloudflare production build must not define `BASE_PATH`. Relative asset URLs also keep the build portable, and CI retains this explicit legacy subpath compatibility check:
 
 ```sh
 BASE_PATH=/humanunits/ pnpm build
 ```
 
 An explicit base path must begin and end with `/`.
+
+See [the Cloudflare Pages deployment guide](docs/deployment.md) for the exact build, domain, caching, security, and search-launch settings.
 
 ## Contributing
 

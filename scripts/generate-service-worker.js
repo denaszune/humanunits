@@ -3,6 +3,9 @@ import { createHash } from 'node:crypto';
 import { join, relative, sep } from 'node:path';
 
 const root = join(process.cwd(), 'dist');
+// Cloudflare Pages consumes underscore-prefixed deployment files instead of
+// serving them. SEO discovery files also are not part of the offline app shell.
+const nonAppShellFiles = new Set(['_headers', '_redirects', 'robots.txt', 'sitemap.xml']);
 async function filesIn(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const nested = await Promise.all(entries.map(entry => entry.isDirectory() ? filesIn(join(directory, entry.name)) : join(directory, entry.name)));
@@ -11,7 +14,7 @@ async function filesIn(directory) {
 
 const assets = (await filesIn(root))
   .map(file => relative(root, file).split(sep).join('/'))
-  .filter(file => file !== 'service-worker.js' && !file.endsWith('.map'))
+  .filter(file => file !== 'service-worker.js' && !file.endsWith('.map') && !nonAppShellFiles.has(file))
   .sort()
   .map(file => `./${file}`);
 
