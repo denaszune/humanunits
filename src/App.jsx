@@ -200,7 +200,7 @@ export default function App() {
   });
   createEffect(() => {
     const current = page();
-    const titles = { converter: 'Human Units', pairs: 'Browse Units · Human Units', library: 'Library · Human Units', about: 'About · Human Units', license: 'License · Human Units' };
+    const titles = { converter: 'Human Units — Fast, Private Unit Converter', pairs: 'Browse Units · Human Units', library: 'Library · Human Units', about: 'About · Human Units', license: 'License · Human Units' };
     document.title = titles[current];
     if (routeReady) queueMicrotask(() => mainRef?.focus({ preventScroll: true }));
     routeReady = true;

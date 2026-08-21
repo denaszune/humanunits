@@ -90,7 +90,8 @@ test('keeps ambiguous category pins distinct after reload', async ({ page }) => 
 
 test('starts from the precache while offline after the service worker controls the page', async ({ page, context }) => {
   await page.goto('./');
-  await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+  const serviceWorkerScope = await page.evaluate(async () => (await navigator.serviceWorker.ready).scope);
+  expect(new URL(serviceWorkerScope).pathname).toBe(new URL('./', page.url()).pathname);
   if (!await page.evaluate(() => Boolean(navigator.serviceWorker.controller))) await page.reload();
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
 

@@ -1,8 +1,6 @@
-name: Deploy to GitHub Pages
+name: Temporary legacy GitHub Pages rollback
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -26,13 +24,13 @@ jobs:
           package-manager-cache: false
 
       - name: Install pnpm
-        run: npm install --global pnpm@11.21.0
+        run: npm install --global pnpm@11.22.0
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile --fix-lockfile
+        run: pnpm install --frozen-lockfile
         timeout-minutes: 5
 
-      - name: Build for GitHub Pages
+      - name: Build temporary legacy rollback for GitHub Pages
         run: BASE_PATH=/humanunits/ pnpm build
 
       - uses: actions/configure-pages@v5

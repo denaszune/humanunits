@@ -1,15 +1,16 @@
 # Production readiness
 
-Use this as the release gate after the automated and manual regression checks. It deliberately does not configure deployment; production hosting and repository controls are owner-managed.
+Use this as the release gate after the automated and manual regression checks. The owner-managed Cloudflare settings are documented in [the deployment guide](deployment.md).
 
 ## Required before promotion
 
-- [ ] Choose the production origin and confirm the intended `BASE_PATH`.
+- [ ] Confirm `main` deploys to `https://humanunits.com` without a `BASE_PATH` environment variable.
+- [ ] Confirm `staging` deploys to `https://staging.humanunits.com` and returns `X-Robots-Tag: noindex, nofollow`.
 - [ ] Require the CI workflow to pass before merging to the production branch.
 - [ ] Protect the production environment with appropriate reviewer and branch rules.
 - [ ] Confirm the host serves HTTPS and does not rewrite or strip the generated manifest, icons, or service worker.
-- [ ] Add host-level security headers where the platform supports them: `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Permissions-Policy`, and a response-header CSP. The generated CSP meta policy is defense in depth, but response headers can additionally enforce directives such as `frame-ancestors`.
-- [ ] Run `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm build`, `pnpm size`, and `pnpm test:e2e` from a clean checkout, then repeat the build and browser suite with the production base path.
+- [ ] Confirm Cloudflare applies the security and cache policies from `public/_headers`. The generated CSP meta policy remains defense in depth.
+- [ ] Run `pnpm install --frozen-lockfile`, `pnpm audit --prod`, `pnpm test`, `pnpm build`, `pnpm size`, and `pnpm test:e2e` from a clean checkout, then repeat the build and browser suite with `BASE_PATH=/humanunits/` as a portability check.
 - [ ] Complete [the manual regression checklist](manual-regression-checklist.md) on at least current Chromium and one independent browser engine, including a phone-sized viewport and 400% zoom.
 - [ ] Test first install, offline reload, and upgrade from the previously published service worker on the real HTTPS origin.
 - [ ] Verify the production network log contains no third-party runtime requests.

@@ -4,7 +4,7 @@
   "id": "./",
   "lang": "en-US",
   "dir": "ltr",
-  "description": "Fast, private, offline unit conversion in natural language",
+  "description": "Convert 500+ units in natural language. Fast, private, and available offline.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
