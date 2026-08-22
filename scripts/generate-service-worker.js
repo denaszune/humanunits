@@ -12,22 +12,30 @@ async function filesIn(directory) {
   return nested.flat();
 }
 
-const assets = (await filesIn(root))
+const assetFiles = (await filesIn(root))
   .map(file => relative(root, file).split(sep).join('/'))
   .filter(file => file !== 'service-worker.js' && !file.endsWith('.map') && !nonAppShellFiles.has(file))
-  .sort()
-  .map(file => `./${file}`);
+  .sort();
+// Cloudflare Pages canonicalizes /index.html to /. Cache the canonical URL so
+// the worker never returns a followed-redirect response to a navigation.
+const assets = assetFiles.map(file => file === 'index.html' ? './' : `./${file}`);
 
 const cacheHash = createHash('sha256');
-for (const asset of assets) {
+for (const [index, asset] of assets.entries()) {
   cacheHash.update(asset);
-  cacheHash.update(await readFile(join(root, asset.slice(2))));
+  cacheHash.update(await readFile(join(root, assetFiles[index])));
 }
 const cacheVersion = cacheHash.digest('hex').slice(0, 12);
 const source = `const CACHE = 'humanunits-${cacheVersion}';
 const ASSETS = ${JSON.stringify(assets)};
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(async () => {
+    // The previous Cloudflare build cached /index.html after its redirect to /.
+    // Activate immediately only when that broken legacy response is present so
+    // an already-controlled site can recover without a manual unregister.
+    const legacyShell = await caches.match('./index.html');
+    if (legacyShell?.redirected) await self.skipWaiting();
+  }));
 });
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('humanunits-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim()));
@@ -38,10 +46,10 @@ self.addEventListener('message', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET' || new URL(event.request.url).origin !== location.origin) return;
   if (event.request.mode === 'navigate') {
-    event.respondWith(caches.match('./index.html').then(cached => cached || fetch(event.request)));
+    event.respondWith(caches.open(CACHE).then(cache => cache.match('./')).then(cached => cached || fetch(event.request)));
     return;
   }
-  event.respondWith(caches.match(event.request, { ignoreSearch: true }).then(cached => cached || fetch(event.request)));
+  event.respondWith(caches.open(CACHE).then(cache => cache.match(event.request, { ignoreSearch: true })).then(cached => cached || fetch(event.request)));
 });
 `;
 await writeFile(join(root, 'service-worker.js'), source);

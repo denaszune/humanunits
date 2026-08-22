@@ -88,12 +88,21 @@ test('keeps ambiguous category pins distinct after reload', async ({ page }) => 
   await expect(page.getByRole('button', { name: 'Pinned', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('starts from the precache while offline after the service worker controls the page', async ({ page, context }) => {
+test('refreshes through Cloudflare-style canonicalization and starts from the precache offline', async ({ page, context }) => {
   await page.goto('./');
   const serviceWorkerScope = await page.evaluate(async () => (await navigator.serviceWorker.ready).scope);
   expect(new URL(serviceWorkerScope).pathname).toBe(new URL('./', page.url()).pathname);
   if (!await page.evaluate(() => Boolean(navigator.serviceWorker.controller))) await page.reload();
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+  const cachedShell = await page.evaluate(async () => {
+    const cacheName = (await caches.keys()).find(name => name.startsWith('humanunits-'));
+    const response = cacheName && await (await caches.open(cacheName)).match('./');
+    return response && { redirected: response.redirected, url: response.url };
+  });
+  expect(cachedShell).toEqual({ redirected: false, url: new URL('./', page.url()).href });
+
+  await page.reload();
+  await expect(page.getByRole('textbox', { name: 'What would you like to convert?' })).toBeVisible();
 
   await context.setOffline(true);
   await page.reload();

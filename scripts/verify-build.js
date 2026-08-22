@@ -83,8 +83,8 @@ for (const pattern of [
 
 const serviceWorker = await readFile(join(root, 'service-worker.js'), 'utf8');
 const precache = JSON.parse(serviceWorker.match(/const ASSETS = (\[[^;]+\]);/)?.[1] || 'null');
-if (!Array.isArray(precache) || precache.includes('./') || !precache.includes('./index.html')) {
-  throw new Error('Service worker must precache only the canonical index.html application shell');
+if (!Array.isArray(precache) || !precache.includes('./') || precache.includes('./index.html')) {
+  throw new Error('Service worker must precache the canonical root application shell, not redirected index.html');
 }
 for (const excluded of ['./_headers', './_redirects', './robots.txt', './sitemap.xml']) {
   if (precache.includes(excluded)) throw new Error(`Service worker must not precache deployment/discovery file ${excluded}`);
@@ -92,15 +92,18 @@ for (const excluded of ['./_headers', './_redirects', './robots.txt', './sitemap
 const expectedCacheHash = createHash('sha256');
 for (const asset of precache) {
   expectedCacheHash.update(asset);
-  expectedCacheHash.update(await readFile(join(root, asset.slice(2))));
+  expectedCacheHash.update(await readFile(join(root, asset === './' ? 'index.html' : asset.slice(2))));
 }
 const expectedCache = `humanunits-${expectedCacheHash.digest('hex').slice(0, 12)}`;
 if (!serviceWorker.includes(`const CACHE = '${expectedCache}'`)) {
   throw new Error('Service-worker cache version must include the contents of every precached asset');
 }
 if (!serviceWorker.includes("event.request.mode === 'navigate'") ||
-    !serviceWorker.includes("caches.match('./index.html').then(cached => cached || fetch(event.request))")) {
-  throw new Error('Service worker must use cache-first navigation with a network fallback');
+    !serviceWorker.includes("cache.match('./')).then(cached => cached || fetch(event.request))")) {
+  throw new Error('Service worker must use the canonical cached root for navigation with a network fallback');
+}
+if (!serviceWorker.includes("legacyShell?.redirected") || !serviceWorker.includes('self.skipWaiting()')) {
+  throw new Error('Service worker must recover automatically from the redirected legacy app shell');
 }
 for (const url of html.matchAll(/(?:src|href)="([^"]+\.(?:js|css))(?:[?#][^"]*)?"/g)) {
   const assetPath = url[1].slice(base.length);

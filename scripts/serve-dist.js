@@ -28,6 +28,12 @@ export function startDistServer(port = 4173, mountPath = '/') {
         return;
       }
       const mountedPath = pathname.slice(mount.length);
+      // Cloudflare Pages canonicalizes index.html to the directory root. Keep
+      // the local browser suite faithful to that production behavior.
+      if (mountedPath === 'index.html') {
+        response.writeHead(308, { Location: mount, 'Cache-Control': 'no-cache' }).end();
+        return;
+      }
       const file = resolve(root, mountedPath ? mountedPath : 'index.html');
       if (file !== root && !file.startsWith(`${root}${sep}`)) {
         response.writeHead(403).end();
