@@ -117,9 +117,20 @@ function loadPrecision() {
   } catch { return 6; }
 }
 
+function loadSharedConversion() {
+  const params = new URLSearchParams(location.search);
+  const sharedQuery = (params.get('q') || '').trim();
+  const sharedPrecision = Number(params.get('p'));
+  return {
+    query: sharedQuery.length <= 500 ? sharedQuery : '',
+    precision: [6, 10, 15].includes(sharedPrecision) ? sharedPrecision : null,
+  };
+}
+
 export default function App() {
   const savedPrecision = loadPrecision();
-  const [query, setQuery] = createSignal('');
+  const sharedConversion = loadSharedConversion();
+  const [query, setQuery] = createSignal(sharedConversion.query);
   const [recentConversions, setRecentConversions] = createSignal(readStoredCollection(localStorage, HISTORY_KEY, isHistoryEntry).map(entry => {
     const value = evaluate(entry.query);
     return value ? { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle)), result: formattedResult(value, savedPrecision) } : null;
@@ -132,9 +143,11 @@ export default function App() {
     return value ? { from: value.from.symbol, to: value.to.symbol, fromCategory: value.from.category, toCategory: value.to.category, query } : null;
   }).filter(Boolean));
   const [copied, setCopied] = createSignal(false);
+  const [linkCopied, setLinkCopied] = createSignal(false);
   const [copyError, setCopyError] = createSignal(false);
+  const [linkCopyError, setLinkCopyError] = createSignal(false);
   const [storageError, setStorageError] = createSignal(false);
-  const [precision, setPrecision] = createSignal(savedPrecision);
+  const [precision, setPrecision] = createSignal(sharedConversion.precision ?? savedPrecision);
   const [installPrompt, setInstallPrompt] = createSignal(null);
   const [updateReady, setUpdateReady] = createSignal(false);
   const [dockSuppressed, setDockSuppressed] = createSignal(false);
@@ -161,7 +174,9 @@ export default function App() {
   let queryDirty = false;
   let routeReady = false;
   let copiedTimer;
+  let linkCopiedTimer;
   let copyErrorTimer;
+  let linkCopyErrorTimer;
   const titleCase = text => text.replace(/(^|\s)\S/g, letter => letter.toUpperCase());
   const categorySections = [
     ['Everyday', ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'time', 'calendar duration', 'fuel economy', 'angle', 'typography']],
@@ -221,7 +236,9 @@ export default function App() {
       removeEventListener('appinstalled', installed);
       removeEventListener('humanunits:update-ready', offerUpdate);
       clearTimeout(copiedTimer);
+      clearTimeout(linkCopiedTimer);
       clearTimeout(copyErrorTimer);
+      clearTimeout(linkCopyErrorTimer);
     });
   });
   const conversion = createMemo(() => evaluate(query()));
@@ -376,20 +393,47 @@ export default function App() {
     return true;
   }
 
+  function sharedUrl(digits = precision()) {
+    if (!conversion()) return null;
+    const url = new URL(appRoot, location.origin);
+    url.searchParams.set('q', query().trim());
+    url.searchParams.set('p', String(digits));
+    return url;
+  }
+
+  function replaceWithSharedUrl(digits = precision()) {
+    const url = sharedUrl(digits);
+    if (!url) return null;
+    window.history.replaceState(window.history.state, '', url);
+    return url;
+  }
+
+  function clearSharedUrl() {
+    const url = new URL(location.href);
+    if (!url.searchParams.has('q') && !url.searchParams.has('p')) return;
+    url.searchParams.delete('q');
+    url.searchParams.delete('p');
+    window.history.replaceState(window.history.state, '', url);
+  }
+
   function submit(event) {
     event.preventDefault();
-    remember();
+    if (remember()) replaceWithSharedUrl();
     conversionInput?.blur();
   }
 
   function clearQuery() {
     setQuery('');
     setCopied(false);
+    setLinkCopied(false);
+    clearSharedUrl();
     queryDirty = false;
   }
 
   function chooseQuery(text) {
     setQuery(text);
+    setLinkCopied(false);
+    clearSharedUrl();
     queryDirty = false;
   }
 
@@ -485,17 +529,24 @@ export default function App() {
   function swap() {
     const value = conversion();
     if (!value || value.to.outputOnly) return;
+    const updateSharedUrl = new URLSearchParams(location.search).has('q');
     const amount = value.to.format === 'feet-inches'
       ? formatValue(value.result, value.to, false, 17)
       : value.clockStyle ? formatValue(value.result, value.to, true, 15) : String(value.result);
     setQuery(symbolPairQuery(value.to, value.from, amount));
+    setLinkCopied(false);
     queryDirty = false;
-    requestAnimationFrame(() => remember());
+    requestAnimationFrame(() => {
+      remember();
+      if (updateSharedUrl) replaceWithSharedUrl();
+    });
   }
 
   function choosePrecision(value) {
     setPrecision(value);
     persist(PRECISION_KEY, value);
+    setLinkCopied(false);
+    if (new URLSearchParams(location.search).has('q')) replaceWithSharedUrl(value);
   }
 
   async function copy() {
@@ -512,6 +563,24 @@ export default function App() {
       setCopyError(true);
       clearTimeout(copyErrorTimer);
       copyErrorTimer = setTimeout(() => setCopyError(false), 4000);
+    }
+  }
+
+  async function copyLink() {
+    const url = replaceWithSharedUrl();
+    if (!url) return;
+    remember();
+    try {
+      await navigator.clipboard.writeText(url.href);
+      setLinkCopied(true);
+      setLinkCopyError(false);
+      clearTimeout(linkCopiedTimer);
+      linkCopiedTimer = setTimeout(() => setLinkCopied(false), 1500);
+    } catch {
+      setLinkCopied(false);
+      setLinkCopyError(true);
+      clearTimeout(linkCopyErrorTimer);
+      linkCopyErrorTimer = setTimeout(() => setLinkCopyError(false), 4000);
     }
   }
 
@@ -598,7 +667,7 @@ export default function App() {
           <form onSubmit={submit} class="converter" role="search">
             <h1 id="converter-title" class="converter-heading"><label for="conversion-input">What would you like to convert?</label></h1>
             <div class="input-wrap">
-              <input ref={conversionInput} id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); queryDirty = true; }} onBlur={() => { if (queryDirty) remember(); }} onKeyDown={event => { if (event.key === 'Escape' && query()) { event.preventDefault(); clearQuery(); } }}
+              <input ref={conversionInput} id="conversion-input" value={query()} onInput={event => { setQuery(event.currentTarget.value); setCopied(false); setLinkCopied(false); clearSharedUrl(); queryDirty = true; }} onBlur={() => { if (queryDirty) remember(); }} onKeyDown={event => { if (event.key === 'Escape' && query()) { event.preventDefault(); clearQuery(); } }}
                 inputmode="text" enterkeyhint="done" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="10 km in miles" aria-describedby="input-hint" />
               <button class="clear-query" type="button" onClick={clearQuery} disabled={!query()} aria-label="Clear conversion input">
                 <svg aria-hidden="true" viewBox="0 0 20 20"><path d="m5 5 10 10m0-10L5 15"/></svg>
@@ -621,9 +690,11 @@ export default function App() {
               <div class="actions">
                 <button type="button" onClick={swap} aria-label="Swap units using full precision"><span aria-hidden="true">⇄</span> Swap</button>
                 <button type="button" onClick={copy}><span aria-hidden="true"><svg class="button-icon" viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></span> {copied() ? 'Copied!' : 'Copy result'}</button>
+                <button type="button" onClick={copyLink}><span aria-hidden="true"><svg class="button-icon" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span> {linkCopied() ? 'Link copied' : 'Copy link'}</button>
                 <button type="button" onClick={togglePin} aria-pressed={pinned()}><span aria-hidden="true">{pinned() ? '★' : '☆'}</span> {pinned() ? 'Pinned' : 'Pin pair'}</button>
               </div>
               <Show when={copyError()}><p class="action-status" role="status">Could not copy the result. Check clipboard permission and try again.</p></Show>
+              <Show when={linkCopyError()}><p class="action-status" role="status">Could not copy the link. Check clipboard permission and try again.</p></Show>
             </Show>
           </div>
         </div>

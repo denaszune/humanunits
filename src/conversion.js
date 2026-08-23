@@ -24,7 +24,7 @@ function add(category, entries) {
 
 // Every linear factor is expressed in the first unit (or the SI unit) of its category.
 add('length', [
-  ['qm','quectometer',1e-30],['rm','rontometer',1e-27],['ym','yoctometer',1e-24],['zm','zeptometer',1e-21],['am','attometer',1e-18],['fm','femtometer',1e-15],['pm','picometer',1e-12],['nm','nanometer',1e-9],['µm','micrometer',1e-6,['micron']],['mm','millimeter',1e-3],['cm','centimeter',1e-2],['dm','decimeter',.1],['m','meter',1,['metre']],['dam','decameter',10],['hm','hectometer',100],['km','kilometer',1e3,['kilometre','kms']],['Mm','megameter',1e6],['Gm','gigameter',1e9],['Å','angstrom',1e-10],['mil','thou',.0000254],['in','inch',.0254,['inches']],['ft','foot',.3048,['feet']],['yd','yard',.9144],['rd','rod',5.0292],['ch','chain',20.1168],['fur','furlong',201.168],['mi','mile',1609.344],['ftm','fathom',1.8288],['cable','cable length',185.2],['nmi','nautical mile',1852],['au','astronomical unit',149597870700],['ly','light-year',9.4607304725808e15],['pc','parsec',3.085677581491367e16]
+  ['qm','quectometer',1e-30],['rm','rontometer',1e-27],['ym','yoctometer',1e-24],['zm','zeptometer',1e-21],['am','attometer',1e-18],['fm','femtometer',1e-15],['pm','picometer',1e-12],['nm','nanometer',1e-9],['µm','micrometer',1e-6,['micron']],['mm','millimeter',1e-3],['cm','centimeter',1e-2],['dm','decimeter',.1],['m','meter',1,['metre']],['dam','decameter',10],['hm','hectometer',100],['km','kilometer',1e3,['kilometre','kms','k']],['Mm','megameter',1e6],['Gm','gigameter',1e9],['Å','angstrom',1e-10],['mil','thou',.0000254],['in','inch',.0254,['inches']],['ft','foot',.3048,['feet']],['yd','yard',.9144],['rd','rod',5.0292],['ch','chain',20.1168],['fur','furlong',201.168],['mi','mile',1609.344],['ftm','fathom',1.8288],['cable','cable length',185.2],['nmi','nautical mile',1852],['au','astronomical unit',149597870700],['ly','light-year',9.4607304725808e15],['pc','parsec',3.085677581491367e16]
 ]);
 add('length', [['ft + in', 'feet and inches', .3048, ['foot and inches', 'feet inches']]]);
 Object.assign(units.at(-1), { format: 'feet-inches', formatIncludesUnit: true });
@@ -293,9 +293,34 @@ export function parseQuery(input) {
   const compound = normalized.match(new RegExp(`^([+-]?)(${decimalPattern})\\s*(?:ft|foot|feet|')\\s*(${decimalPattern})\\s*(?:in(?:ch(?:es)?)?|\")\\s+(?:in(?:to)?|to|as|→)\\s+(.+?)\\s*\\??$`, 'i'));
   const numberFromToken = token => Number(token.replace(/,/g, ''));
   const compoundValue = compound ? (compound[1] === '-' ? -1 : 1) * (numberFromToken(compound[2]) + numberFromToken(compound[3]) / 12) : undefined;
-  const match = compound
-    ? [compound[0], String(compoundValue), 'ft + in', compound[4]]
-    : normalized.match(new RegExp(`^(${numericPattern})\\s+(.+?)\\s+(?:in(?:to)?|to|as|→)\\s+(.+?)\\s*\\??$`, 'i'));
+  let match = compound ? [compound[0], String(compoundValue), 'ft + in', compound[4]] : null;
+  if (!match) {
+    const numeric = new RegExp(`^${numericPattern}$`, 'i');
+    const splitValueUnit = text => {
+      for (let index = text.length - 1; index > 0; index--) {
+        const value = text.slice(0, index).trimEnd();
+        const unitText = text.slice(index);
+        const unit = unitText.trimStart();
+        if (!/^\s/.test(unitText) && /^\d/.test(unit)) continue;
+        const paceLike = /^(?:(?:s|sec|second|min|minute|h|hr|hour)\s*)?\//i.test(unit);
+        if (unit && numeric.test(value) && (paceLike || unitCandidates(unit).length)) return [value, unit];
+      }
+      return null;
+    };
+    const connector = /\s+(?:in(?:to)?|to|as|→)\s+/ig;
+    for (let searchIndex = 0; searchIndex < normalized.length;) {
+      connector.lastIndex = searchIndex;
+      const separator = connector.exec(normalized);
+      if (!separator) break;
+      const source = splitValueUnit(normalized.slice(0, separator.index));
+      const destination = normalized.slice(separator.index + separator[0].length).replace(/\?\s*$/, '').trim();
+      if (source && destination) {
+        match = [normalized, source[0], source[1], destination];
+        break;
+      }
+      searchIndex = separator.index + 1;
+    }
+  }
   if (!match) return null;
   const clean = value => words(value).replace(/^degrees?\s+/, '');
   const clockInput = match[1].includes(':');

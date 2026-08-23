@@ -440,7 +440,7 @@ h1 { color: var(--deep-green); text-wrap: balance; }
 .converter-composer.invalid .result-heading,
 .converter-composer.invalid .result { background: var(--accent-soft); }
 .converter-composer.invalid .result .empty-result { color: #713b30; }
-.converter-composer .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--border); background: var(--surface); }
+.converter-composer .actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--border); background: var(--surface); }
 .converter-composer .actions button { min-width: 0; min-height: 52px; padding: var(--space-2); border-right: 1px solid var(--border); background: transparent; color: var(--ink); }
 .converter-composer .actions button:last-child { border-right: 0; }
 .converter-composer .actions button:hover:not(:disabled) { background: var(--soft-green); }

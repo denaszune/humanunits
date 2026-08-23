@@ -66,6 +66,15 @@ describe('natural-language parser', () => {
     close(evaluate('−40 degrees Fahrenheit to celsius')?.result, -40);
   });
 
+  it('accepts units attached to values and resolves shorthand from the destination', () => {
+    close(evaluate('10km to mi')?.result, 6.2137119224);
+    close(evaluate('10k to mi')?.result, 6.2137119224);
+    close(evaluate('500ml to L')?.result, .5);
+    close(evaluate('72°F to c')?.result, 22.2222222222);
+    close(evaluate('10k to m')?.result, 10000);
+    close(evaluate('10k to c')?.result, -263.15);
+  });
+
   it('accepts clock-style and arbitrary-distance pace expressions', () => {
     assert.equal(parseQuery('7:00 min/mi to min/km')?.from.category, 'pace');
     assert.equal(parseQuery('4:45 minute per mile in minute per kilometer')?.from.category, 'pace');

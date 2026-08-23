@@ -19,6 +19,39 @@ test('converts case-sensitive symbols and exposes accessible result actions', as
   await expect(page.getByRole('button', { name: 'Pin pair' })).toHaveAttribute('aria-pressed', 'false');
 });
 
+test('loads, updates, and copies shareable conversion URLs', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async value => { window.__copiedText = value; } },
+    });
+  });
+  await page.goto('./?q=10k+to+mi&p=10');
+  const input = page.getByRole('textbox', { name: 'What would you like to convert?' });
+  await expect(input).toHaveValue('10k to mi');
+  await expect(page.locator('.result')).toContainText('6.213711922');
+  await expect(page.getByRole('group', { name: 'Significant digits' }).getByRole('button', { name: '10' })).toHaveAttribute('aria-pressed', 'true');
+
+  await page.getByRole('button', { name: 'Copy link' }).click();
+  await expect(page.getByRole('button', { name: 'Link copied' })).toBeVisible();
+  const copied = new URL(await page.evaluate(() => window.__copiedText));
+  expect(copied.searchParams.get('q')).toBe('10k to mi');
+  expect(copied.searchParams.get('p')).toBe('10');
+
+  await page.getByRole('group', { name: 'Significant digits' }).getByRole('button', { name: '15' }).click();
+  await expect.poll(() => new URL(page.url()).searchParams.get('p')).toBe('15');
+  await input.fill('5kg to lb');
+  await expect.poll(() => new URL(page.url()).searchParams.has('q')).toBe(false);
+  await input.press('Enter');
+  await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe('5kg to lb');
+
+  await page.reload();
+  await expect(input).toHaveValue('5kg to lb');
+  await expect(page.locator('.result')).toContainText('11.023113109243');
+  await page.getByRole('button', { name: 'Clear conversion input' }).click();
+  await expect.poll(() => new URL(page.url()).searchParams.has('q')).toBe(false);
+});
+
 test('swaps compound feet and inches without visible round-trip drift', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('./');
