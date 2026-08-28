@@ -171,6 +171,7 @@ export default function App() {
   let observedResult;
   let quickReuseRef;
   let mainRef;
+  let browseSelectionFrame;
   let queryDirty = false;
   let routeReady = false;
   let copiedTimer;
@@ -239,6 +240,7 @@ export default function App() {
       clearTimeout(linkCopiedTimer);
       clearTimeout(copyErrorTimer);
       clearTimeout(linkCopyErrorTimer);
+      cancelAnimationFrame(browseSelectionFrame);
     });
   });
   const conversion = createMemo(() => evaluate(query()));
@@ -372,14 +374,15 @@ export default function App() {
   createEffect(() => {
     const selection = browseSelection();
     if (page() !== 'converter' || !selection) return;
-    setBrowseSelection(null);
-    queueMicrotask(() => {
-      if (!conversionInput || conversionInput.value !== selection.query) return;
+    cancelAnimationFrame(browseSelectionFrame);
+    browseSelectionFrame = requestAnimationFrame(() => {
+      if (!conversionInput?.isConnected || conversionInput.value !== selection.query) return;
       conversionInput.focus();
       conversionInput.setSelectionRange(selection.start, selection.end);
       // Browsers normally scroll the selection end into view. Browse queries can
       // be wider than the field, so put the selected amount back on screen.
       conversionInput.scrollLeft = 0;
+      setBrowseSelection(null);
     });
   });
 

@@ -110,6 +110,24 @@ test('hash routes update the page title, heading, history, and focus', async ({ 
   await expect(page.getByRole('heading', { name: 'About Human Units', level: 1 })).toBeVisible();
 });
 
+test('browse choices consistently focus and select the suggested amount', async ({ page }) => {
+  await page.goto('./#pairs');
+  const input = page.getByRole('textbox', { name: 'What would you like to convert?' });
+
+  await page.locator('.popular-pairs a').first().click();
+  await expect(input).toHaveValue('10 km in mi');
+  await expect(input).toBeFocused();
+  await expect.poll(() => input.evaluate(element => element.value.slice(element.selectionStart, element.selectionEnd))).toBe('10');
+
+  await page.getByRole('link', { name: 'Browse' }).first().click();
+  await page.getByRole('button', { name: /Length.*units/ }).click();
+  await page.getByRole('button', { name: 'km Kilometer' }).click();
+  await page.getByRole('button', { name: /^mi\b/i }).click();
+  await expect(input).toHaveValue('10 km in mi');
+  await expect(input).toBeFocused();
+  await expect.poll(() => input.evaluate(element => element.value.slice(element.selectionStart, element.selectionEnd))).toBe('10');
+});
+
 test('keeps ambiguous category pins distinct after reload', async ({ page }) => {
   await page.goto('./');
   const input = page.getByRole('textbox', { name: 'What would you like to convert?' });
