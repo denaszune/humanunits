@@ -67,14 +67,15 @@ test('applies a persisted theme before the application bundle runs', async ({ pa
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#121212');
 });
 
-test('keeps dark-theme surfaces neutral and contrast above minimums', async ({ page }) => {
-  await page.emulateMedia({ colorScheme: 'dark' });
+test('keeps dark-theme brand green scoped to the logo and result band', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
   await page.goto('./');
   const colors = await page.evaluate(() => {
     const styles = getComputedStyle(document.documentElement);
     return Object.fromEntries([
       '--dark-page', '--dark-surface-1', '--dark-surface-2', '--dark-control', '--dark-border-strong',
-      '--dark-text', '--dark-text-muted', '--dark-accent',
+      '--dark-text', '--dark-text-muted', '--dark-accent', '--dark-accent-hover',
+      '--dark-brand-surface', '--dark-brand-border', '--dark-brand-accent', '--dark-logo-background',
     ].map(property => [property, styles.getPropertyValue(property).trim()]));
   });
   const luminance = color => {
@@ -105,10 +106,13 @@ test('keeps dark-theme surfaces neutral and contrast above minimums', async ({ p
     expect(green).toBeLessThanOrEqual(red + 1);
   }
 
+  const renderedChannels = color => color.match(/\d+/g).slice(0, 3).map(Number);
+
+  // The general surface system stays strictly neutral. The logo and result band
+  // are the only sanctioned green surfaces and are asserted separately below.
   const renderedBackgrounds = await page.locator('.converter-composer').evaluate(element => ({
     page: getComputedStyle(document.body).backgroundColor,
     card: getComputedStyle(element).backgroundColor,
-    result: getComputedStyle(element.querySelector('.result')).backgroundColor,
     control: getComputedStyle(element.querySelector('input')).backgroundColor,
   }));
   for (const background of Object.values(renderedBackgrounds)) {
@@ -116,6 +120,56 @@ test('keeps dark-theme surfaces neutral and contrast above minimums', async ({ p
     expect(Math.max(red, green, blue) - Math.min(red, green, blue)).toBeLessThanOrEqual(4);
     expect(green).toBeLessThanOrEqual(red + 1);
   }
+
+  // The result is a subdued green-black ground, while its divider and logo use
+  // their dedicated brand tokens rather than leaking into general roles.
+  const resultBackground = await page.locator('.converter-composer .result')
+    .evaluate(element => getComputedStyle(element).backgroundColor);
+  expect(renderedChannels(resultBackground)).toEqual(channels(colors['--dark-brand-surface']));
+  const logoBackground = await page.locator('.brand-mark rect').evaluate(element => getComputedStyle(element).fill);
+  expect(renderedChannels(logoBackground)).toEqual(channels(colors['--dark-logo-background']));
+  const [brandRed, brandGreen, brandBlue] = channels(colors['--dark-brand-surface']);
+  expect(brandGreen).toBeGreaterThan(brandRed);
+  expect(Math.max(brandRed, brandGreen, brandBlue) - Math.min(brandRed, brandGreen, brandBlue)).toBeLessThanOrEqual(20);
+  expect(luminance(colors['--dark-brand-surface'])).toBeLessThanOrEqual(luminance(colors['--dark-surface-2']));
+  for (const pair of [
+    ['--dark-text', '--dark-brand-surface'],
+    ['--dark-text-muted', '--dark-brand-surface'],
+    ['--dark-brand-accent', '--dark-brand-surface'],
+  ]) expect(contrast(...pair)).toBeGreaterThanOrEqual(4.5);
+
+  const input = page.getByRole('textbox', { name: 'What would you like to convert?' });
+  await input.fill('10 km in miles');
+  await page.getByRole('button', { name: 'Pin pair' }).click();
+  const pinnedButton = await page.getByRole('button', { name: 'Pinned', exact: true }).evaluate(element => ({
+    background: getComputedStyle(element).backgroundColor,
+    color: getComputedStyle(element).color,
+  }));
+  expect(renderedChannels(pinnedButton.background)).toEqual(channels(colors['--dark-surface-2']));
+  expect(renderedChannels(pinnedButton.color)).toEqual(channels(colors['--dark-accent-hover']));
+  const divider = await page.locator('.converter-composer .actions')
+    .evaluate(element => getComputedStyle(element).borderTopColor);
+  expect(renderedChannels(divider)).toEqual(channels(colors['--dark-brand-border']));
+
+  await page.goto('./#pairs');
+  const category = page.locator('.category-item').first();
+  await category.locator('.category-card').click();
+  const browseSurfaces = await category.evaluate(element => ({
+    category: getComputedStyle(element).backgroundColor,
+    panel: getComputedStyle(element.querySelector('.unit-panel')).backgroundColor,
+    icon: getComputedStyle(element.querySelector('.category-card > span:last-child')).color,
+  }));
+  expect(renderedChannels(browseSurfaces.category)).toEqual(channels(colors['--dark-surface-2']));
+  expect(renderedChannels(browseSurfaces.panel)).toEqual(channels(colors['--dark-control']));
+  expect(renderedChannels(browseSurfaces.icon)).toEqual(channels(colors['--dark-accent']));
+
+  await page.goto('./#library');
+  const librarySurfaces = await page.locator('.library-panel').first().evaluate(element => ({
+    panel: getComputedStyle(element).backgroundColor,
+    count: getComputedStyle(element.querySelector('.library-count')).backgroundColor,
+  }));
+  expect(renderedChannels(librarySurfaces.panel)).toEqual(channels(colors['--dark-surface-1']));
+  expect(renderedChannels(librarySurfaces.count)).toEqual(channels(colors['--dark-surface-2']));
 });
 
 test('converts case-sensitive symbols and exposes accessible result actions', async ({ page }) => {
