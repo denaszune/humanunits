@@ -141,12 +141,21 @@ test('keeps dark-theme brand green scoped to the logo and result band', async ({
   const input = page.getByRole('textbox', { name: 'What would you like to convert?' });
   await input.fill('10 km in miles');
   await page.getByRole('button', { name: 'Pin pair' }).click();
-  const pinnedButton = await page.getByRole('button', { name: 'Pinned', exact: true }).evaluate(element => ({
-    background: getComputedStyle(element).backgroundColor,
-    color: getComputedStyle(element).color,
-  }));
-  expect(renderedChannels(pinnedButton.background)).toEqual(channels(colors['--dark-surface-2']));
-  expect(renderedChannels(pinnedButton.color)).toEqual(channels(colors['--dark-accent-hover']));
+  const pinnedButton = page.getByRole('button', { name: 'Pinned', exact: true });
+  await expect(pinnedButton).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(async () => {
+    const styles = await pinnedButton.evaluate(element => ({
+      background: getComputedStyle(element).backgroundColor,
+      color: getComputedStyle(element).color,
+    }));
+    return {
+      background: renderedChannels(styles.background),
+      color: renderedChannels(styles.color),
+    };
+  }).toEqual({
+    background: channels(colors['--dark-surface-2']),
+    color: channels(colors['--dark-accent-hover']),
+  });
   const divider = await page.locator('.converter-composer .actions')
     .evaluate(element => getComputedStyle(element).borderTopColor);
   expect(renderedChannels(divider)).toEqual(channels(colors['--dark-brand-border']));
@@ -154,14 +163,18 @@ test('keeps dark-theme brand green scoped to the logo and result band', async ({
   await page.goto('./#pairs');
   const category = page.locator('.category-item').first();
   await category.locator('.category-card').click();
-  const browseSurfaces = await category.evaluate(element => ({
-    category: getComputedStyle(element).backgroundColor,
-    panel: getComputedStyle(element.querySelector('.unit-panel')).backgroundColor,
-    icon: getComputedStyle(element.querySelector('.category-card > span:last-child')).color,
-  }));
-  expect(renderedChannels(browseSurfaces.category)).toEqual(channels(colors['--dark-surface-2']));
-  expect(renderedChannels(browseSurfaces.panel)).toEqual(channels(colors['--dark-control']));
-  expect(renderedChannels(browseSurfaces.icon)).toEqual(channels(colors['--dark-accent']));
+  await expect.poll(async () => {
+    const styles = await category.evaluate(element => ({
+      category: getComputedStyle(element).backgroundColor,
+      panel: getComputedStyle(element.querySelector('.unit-panel')).backgroundColor,
+      icon: getComputedStyle(element.querySelector('.category-card > span:last-child')).color,
+    }));
+    return Object.fromEntries(Object.entries(styles).map(([key, value]) => [key, renderedChannels(value)]));
+  }).toEqual({
+    category: channels(colors['--dark-surface-2']),
+    panel: channels(colors['--dark-control']),
+    icon: channels(colors['--dark-accent']),
+  });
 
   await page.goto('./#library');
   const librarySurfaces = await page.locator('.library-panel').first().evaluate(element => ({
