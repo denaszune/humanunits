@@ -21,12 +21,14 @@ export default defineConfig({
     title: 'Human Units — Fast, Private Unit Converter',
     meta: {
       description: 'Convert 500+ everyday, scientific, and specialist units in natural language. Human Units is fast, private, and works offline.',
-      'theme-color': '#123c34',
       referrer: 'no-referrer',
       robots: 'index, follow',
     },
     tags: [
       { tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: "default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; media-src 'none'; manifest-src 'self'; connect-src 'self'; worker-src 'self'; child-src 'none'; frame-src 'none'; form-action 'self'" }, head: true },
+      { tag: 'meta', attrs: { name: 'color-scheme', content: 'light dark' }, head: true },
+      { tag: 'meta', attrs: { name: 'theme-color', content: '#f6f2e8' }, head: true },
+      { tag: 'script', attrs: { src: `${base}theme-init.js` }, head: true },
       { tag: 'link', attrs: { rel: 'canonical', href: 'https://humanunits.com/' }, head: true },
       { tag: 'link', attrs: { rel: 'manifest', href: 'manifest.webmanifest' }, head: true },
       { tag: 'link', attrs: { rel: 'icon', href: 'icon-any.323fef38.svg', type: 'image/svg+xml' }, head: true },

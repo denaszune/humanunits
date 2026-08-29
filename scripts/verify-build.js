@@ -13,6 +13,9 @@ for (const required of [
   'Convert 500+ everyday, scientific, computing, and specialist units',
   '<meta name="referrer" content="no-referrer">',
   '<meta name="robots" content="index, follow">',
+  '<meta name="color-scheme" content="light dark">',
+  '<meta name="theme-color" content="#f6f2e8">',
+  `<script src="${base === './' ? '' : base}theme-init.js"></script>`,
   '<meta http-equiv="Content-Security-Policy"',
   "default-src 'self'",
   "object-src 'none'",
@@ -33,6 +36,7 @@ const htmlAssets = [
   'favicon-32.b4790ade.png',
   'apple-touch-180.625da17a.png',
 ];
+await access(join(root, 'theme-init.js'));
 const manifestAssets = [
   'icon-any-192.e8768384.png',
   'icon-any-512.3275eece.png',
@@ -106,7 +110,7 @@ if (!serviceWorker.includes("legacyShell?.redirected") || !serviceWorker.include
   throw new Error('Service worker must recover automatically from the redirected legacy app shell');
 }
 for (const url of html.matchAll(/(?:src|href)="([^"]+\.(?:js|css))(?:[?#][^"]*)?"/g)) {
-  const assetPath = url[1].slice(base.length);
+  const assetPath = base === './' ? url[1].replace(/^\.\//, '') : url[1].slice(base.length);
   await access(join(root, assetPath));
   if (!precache.includes(`./${assetPath}`)) {
     throw new Error(`Service worker does not precache HTML asset ${assetPath}`);

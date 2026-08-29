@@ -2,10 +2,119 @@ import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 test('has no automatically detectable accessibility violations on primary views', async ({ page }) => {
-  for (const hash of ['', '#pairs', '#library', '#about', '#license']) {
-    await page.goto(`./${hash}`);
-    const results = await new AxeBuilder({ page }).analyze();
-    expect(results.violations.map(violation => ({ id: violation.id, targets: violation.nodes.map(node => node.target) }))).toEqual([]);
+  for (const colorScheme of ['light', 'dark']) {
+    await page.emulateMedia({ colorScheme });
+    for (const hash of ['', '#pairs', '#library', '#about', '#license']) {
+      await page.goto(`./${hash}`);
+      const results = await new AxeBuilder({ page }).analyze();
+      expect(results.violations.map(violation => ({ id: violation.id, targets: violation.nodes.map(node => node.target) }))).toEqual([]);
+    }
+  }
+});
+
+test('follows the system theme and persists explicit theme choices', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('./');
+  const root = page.locator('html');
+  const canvas = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim());
+  const themeColor = () => page.locator('meta[name="theme-color"]').getAttribute('content');
+
+  expect(await root.getAttribute('data-theme')).toBeNull();
+  await expect.poll(canvas).toBe('#121212');
+  await expect.poll(themeColor).toBe('#121212');
+
+  await page.getByRole('button', { name: 'Theme: System' }).click();
+  const picker = page.getByRole('dialog', { name: 'Theme' });
+  await expect(picker).toBeVisible();
+  const placement = await picker.evaluate(element => {
+    const pickerBounds = element.getBoundingClientRect();
+    const buttonBounds = document.querySelector('.theme-toggle').getBoundingClientRect();
+    return { rightGap: Math.abs(pickerBounds.right - buttonBounds.right), verticalGap: pickerBounds.top - buttonBounds.bottom };
+  });
+  expect(placement.rightGap).toBeLessThan(1);
+  expect(placement.verticalGap).toBe(8);
+  await expect(picker.getByRole('radio', { name: /System/ })).toBeChecked();
+  await picker.getByRole('radio', { name: /Light/ }).check();
+  await expect(picker).toBeHidden();
+  await expect(root).toHaveAttribute('data-theme', 'light');
+  await expect.poll(canvas).toBe('#f6f2e8');
+  await expect.poll(themeColor).toBe('#f6f2e8');
+  expect(await page.evaluate(() => localStorage.getItem('humanunits:theme:v1'))).toBe('"light"');
+
+  await page.reload();
+  await expect(root).toHaveAttribute('data-theme', 'light');
+  await page.getByRole('button', { name: 'Theme: Light' }).click();
+  await page.getByRole('dialog', { name: 'Theme' }).getByRole('radio', { name: /Dark/ }).check();
+  await expect(root).toHaveAttribute('data-theme', 'dark');
+  await expect.poll(themeColor).toBe('#121212');
+
+  await page.getByRole('button', { name: 'Theme: Dark' }).click();
+  await page.getByRole('dialog', { name: 'Theme' }).getByRole('radio', { name: /System/ }).check();
+  expect(await root.getAttribute('data-theme')).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem('humanunits:theme:v1'))).toBeNull();
+  await expect.poll(canvas).toBe('#121212');
+
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect.poll(canvas).toBe('#f6f2e8');
+  await expect.poll(themeColor).toBe('#f6f2e8');
+});
+
+test('applies a persisted theme before the application bundle runs', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('humanunits:theme:v1', '"dark"'));
+  await page.route('**/static/js/**', route => route.abort());
+  await page.goto('./');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#121212');
+});
+
+test('keeps dark-theme surfaces neutral and contrast above minimums', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('./');
+  const colors = await page.evaluate(() => {
+    const styles = getComputedStyle(document.documentElement);
+    return Object.fromEntries([
+      '--dark-page', '--dark-surface-1', '--dark-surface-2', '--dark-control', '--dark-border-strong',
+      '--dark-text', '--dark-text-muted', '--dark-accent',
+    ].map(property => [property, styles.getPropertyValue(property).trim()]));
+  });
+  const luminance = color => {
+    const channels = color.match(/[\da-f]{2}/gi).map(channel => parseInt(channel, 16) / 255)
+      .map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4);
+    return .2126 * channels[0] + .7152 * channels[1] + .0722 * channels[2];
+  };
+  const contrast = (first, second) => {
+    const values = [luminance(colors[first]), luminance(colors[second])].sort((a, b) => b - a);
+    return (values[0] + .05) / (values[1] + .05);
+  };
+
+  for (const pair of [
+    ['--dark-text', '--dark-surface-1'],
+    ['--dark-text-muted', '--dark-surface-1'],
+    ['--dark-accent', '--dark-surface-1'],
+  ]) expect(contrast(...pair)).toBeGreaterThanOrEqual(4.5);
+  for (const pair of [
+    ['--dark-border-strong', '--dark-control'],
+    ['--dark-border-strong', '--dark-surface-2'],
+    ['--dark-accent', '--dark-surface-2'],
+  ]) expect(contrast(...pair)).toBeGreaterThanOrEqual(3);
+
+  const channels = color => color.match(/[\da-f]{2}/gi).map(channel => parseInt(channel, 16));
+  for (const property of ['--dark-page', '--dark-surface-1', '--dark-surface-2', '--dark-control']) {
+    const [red, green, blue] = channels(colors[property]);
+    expect(Math.max(red, green, blue) - Math.min(red, green, blue)).toBeLessThanOrEqual(4);
+    expect(green).toBeLessThanOrEqual(red + 1);
+  }
+
+  const renderedBackgrounds = await page.locator('.converter-composer').evaluate(element => ({
+    page: getComputedStyle(document.body).backgroundColor,
+    card: getComputedStyle(element).backgroundColor,
+    result: getComputedStyle(element.querySelector('.result')).backgroundColor,
+    control: getComputedStyle(element.querySelector('input')).backgroundColor,
+  }));
+  for (const background of Object.values(renderedBackgrounds)) {
+    const [red, green, blue] = background.match(/\d+/g).slice(0, 3).map(Number);
+    expect(Math.max(red, green, blue) - Math.min(red, green, blue)).toBeLessThanOrEqual(4);
+    expect(green).toBeLessThanOrEqual(red + 1);
   }
 });
 

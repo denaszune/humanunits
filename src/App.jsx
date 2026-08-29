@@ -6,6 +6,13 @@ import { isHistoryEntry, isPinEntry, readStoredCollection, writeStoredValue } fr
 const HISTORY_KEY = 'humanunits:history:v1';
 const PINS_KEY = 'humanunits:pins:v1';
 const PRECISION_KEY = 'humanunits:precision:v1';
+const THEME_KEY = 'humanunits:theme:v1';
+const THEME_COLORS = { light: '#f6f2e8', dark: '#121212' };
+const themeOptions = [
+  { value: 'system', label: 'System', description: 'Use device setting' },
+  { value: 'light', label: 'Light', description: 'Warm paper' },
+  { value: 'dark', label: 'Dark', description: 'Low-light palette' },
+];
 const examples = ['10 km in miles', '72 f to c', '5 lb to kg'];
 const appRoot = import.meta.env.BASE_PATH === './' ? new URL('./', document.baseURI).pathname : import.meta.env.BASE_PATH;
 const licensePath = `${appRoot}#license`;
@@ -117,6 +124,21 @@ function loadPrecision() {
   } catch { return 6; }
 }
 
+function loadThemePreference() {
+  try {
+    const value = JSON.parse(localStorage.getItem(THEME_KEY));
+    return value === 'light' || value === 'dark' ? value : 'system';
+  } catch { return 'system'; }
+}
+
+function saveThemePreference(value) {
+  try {
+    if (value === 'system') localStorage.removeItem(THEME_KEY);
+    else localStorage.setItem(THEME_KEY, JSON.stringify(value));
+    return true;
+  } catch { return false; }
+}
+
 function loadSharedConversion() {
   const params = new URLSearchParams(location.search);
   const sharedQuery = (params.get('q') || '').trim();
@@ -151,6 +173,11 @@ export default function App() {
   const [installPrompt, setInstallPrompt] = createSignal(null);
   const [updateReady, setUpdateReady] = createSignal(false);
   const [dockSuppressed, setDockSuppressed] = createSignal(false);
+  const colorSchemeQuery = matchMedia('(prefers-color-scheme: dark)');
+  const [themePreference, setThemePreference] = createSignal(loadThemePreference());
+  const [systemDark, setSystemDark] = createSignal(colorSchemeQuery.matches);
+  const resolvedTheme = createMemo(() => themePreference() === 'system' ? (systemDark() ? 'dark' : 'light') : themePreference());
+  const themeLabel = createMemo(() => themeOptions.find(option => option.value === themePreference()).label);
   const catalog = supportedUnits();
   const unitCount = catalog.reduce((total, group) => total + group.units.length, 0);
   const popularPairSymbols = [['km', 'mi'], ['°C', '°F'], ['kg', 'lb'], ['cm', 'ft + in'], ['L', 'gal (US)'], ['min/mi', 'min/km']];
@@ -171,6 +198,8 @@ export default function App() {
   let observedResult;
   let quickReuseRef;
   let mainRef;
+  let themeButton;
+  let themePopover;
   let browseSelectionFrame;
   let queryDirty = false;
   let routeReady = false;
@@ -221,6 +250,15 @@ export default function App() {
     if (routeReady) queueMicrotask(() => mainRef?.focus({ preventScroll: true }));
     routeReady = true;
   });
+  createEffect(() => {
+    const preference = themePreference();
+    const resolved = resolvedTheme();
+    if (preference === 'system') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = preference;
+    document.documentElement.style.colorScheme = resolved;
+    const themeColor = document.querySelector('meta[name="theme-color"]');
+    if (themeColor) themeColor.content = THEME_COLORS[resolved];
+  });
   onMount(() => {
     const offerInstall = event => {
       event.preventDefault();
@@ -228,14 +266,22 @@ export default function App() {
     };
     const offerUpdate = () => setUpdateReady(true);
     const installed = () => setInstallPrompt(null);
+    const syncSystemTheme = event => setSystemDark(event.matches);
+    const syncStoredTheme = event => {
+      if (event.key === THEME_KEY) setThemePreference(loadThemePreference());
+    };
     addEventListener('beforeinstallprompt', offerInstall);
     addEventListener('appinstalled', installed);
     addEventListener('humanunits:update-ready', offerUpdate);
+    addEventListener('storage', syncStoredTheme);
+    colorSchemeQuery.addEventListener('change', syncSystemTheme);
     if (matchMedia('(pointer: fine)').matches) conversionInput?.focus({ preventScroll: true });
     onCleanup(() => {
       removeEventListener('beforeinstallprompt', offerInstall);
       removeEventListener('appinstalled', installed);
       removeEventListener('humanunits:update-ready', offerUpdate);
+      removeEventListener('storage', syncStoredTheme);
+      colorSchemeQuery.removeEventListener('change', syncSystemTheme);
       clearTimeout(copiedTimer);
       clearTimeout(linkCopiedTimer);
       clearTimeout(copyErrorTimer);
@@ -529,6 +575,20 @@ export default function App() {
     dispatchEvent(new Event('humanunits:apply-update'));
   }
 
+  function chooseTheme(value) {
+    setThemePreference(value);
+    setStorageError(!saveThemePreference(value));
+    themePopover?.hidePopover();
+    themeButton?.focus();
+  }
+
+  function positionThemePopover() {
+    const bounds = themeButton?.getBoundingClientRect();
+    if (!bounds || !themePopover) return;
+    themePopover.style.setProperty('--theme-popover-top', `${bounds.bottom + 8}px`);
+    themePopover.style.setProperty('--theme-popover-right', `${Math.max(8, document.body.clientWidth - bounds.right)}px`);
+  }
+
   function swap() {
     const value = conversion();
     if (!value || value.to.outputOnly) return;
@@ -624,6 +684,22 @@ export default function App() {
         <nav class="utility-nav" aria-label="Utility">
           <a href={`${appRoot}#about`} onClick={event => handleInternalLink(event, `${appRoot}#about`)} aria-current={page() === 'about' ? 'page' : undefined}>About</a>
         </nav>
+        <button ref={themeButton} class="theme-toggle" type="button" popovertarget="theme-picker" aria-haspopup="dialog" aria-label={`Theme: ${themeLabel()}`} title={`Theme: ${themeLabel()}`} onClick={positionThemePopover}>
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <Show when={themePreference() === 'system'} fallback={<Show when={themePreference() === 'light'} fallback={<path d="M20.2 15.4A8.5 8.5 0 0 1 8.6 3.8 8.5 8.5 0 1 0 20.2 15.4Z"/>}><circle cx="12" cy="12" r="3.5"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></Show>}>
+              <rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/>
+            </Show>
+          </svg>
+        </button>
+        <div ref={themePopover} id="theme-picker" class="theme-popover" popover="auto" role="dialog" aria-labelledby="theme-picker-title">
+          <fieldset>
+            <legend id="theme-picker-title">Theme</legend>
+            <For each={themeOptions}>{option => <label>
+              <input type="radio" name="theme" value={option.value} checked={themePreference() === option.value} onChange={() => chooseTheme(option.value)} />
+              <span><strong>{option.label}</strong><small>{option.description}</small></span>
+            </label>}</For>
+          </fieldset>
+        </div>
         <Show when={updateReady()} fallback={<Show when={installPrompt()}><button class="header-action" type="button" onClick={install}>Install</button></Show>}>
           <button class="header-action" type="button" onClick={update}>Update</button>
         </Show>
@@ -631,7 +707,7 @@ export default function App() {
       </div>
     </header>
 
-    <Show when={storageError()}><p class="storage-warning" role="alert">This browser blocked local storage. Your pins, history, and precision changes will not survive a reload.</p></Show>
+    <Show when={storageError()}><p class="storage-warning" role="alert">This browser blocked local storage. Your pins, history, precision, and theme changes will not survive a reload.</p></Show>
 
     <main ref={mainRef} tabindex="-1" aria-labelledby={page() === 'pairs' ? 'browse-title' : `${page()}-title`} classList={{ 'convert-main': page() === 'converter' }}>
       <Show when={page() === 'converter'} fallback={<Show when={page() === 'pairs'} fallback={<Show when={page() === 'library'} fallback={<Show when={page() === 'about'} fallback={<LicensePage />}><AboutPage onNavigate={handleInternalLink} /></Show>}><LibraryPage pins={pins()} recents={recentConversions()} onReuse={chooseBrowseQuery} onReusePin={reusePinnedQuery} onMovePin={reorderLibraryPin} onUnpin={removeLibraryPin} onRemoveRecent={removeLibraryRecent} onClear={clearLibraryRecent} /></Show>}>
