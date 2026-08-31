@@ -162,6 +162,40 @@ describe('conversion engine', () => {
     assert.equal(formatNumber(6.2137119224, 15), '6.2137119224');
   });
 
+  it('keeps exact temperature landmarks clean at every display precision', () => {
+    for (const [query, expected] of [
+      ['20 c to f', '68'],
+      ['32 f to c', '0'],
+      ['491.67 rankine to c', '0'],
+      ['80 reaumur to c', '100'],
+      ['150 delisle to c', '0'],
+      ['33 newton temperature to c', '100'],
+      ['7.5 romer to c', '0'],
+    ]) {
+      const conversion = evaluate(query);
+      assert.ok(conversion, query);
+      for (const precision of [6, 10, 15]) {
+        assert.equal(formatValue(conversion.result, conversion.to, false, precision), expected, `${query} at ${precision} digits`);
+      }
+    }
+  });
+
+  it('enforces absolute zero on every temperature scale', () => {
+    for (const [valid, invalid] of [
+      ['0 k to c', '-0.001 k to c'],
+      ['-273.15 c to k', '-273.151 c to k'],
+      ['-459.67 f to c', '-459.671 f to c'],
+      ['0 rankine to c', '-0.001 rankine to c'],
+      ['-218.52 reaumur to c', '-218.521 reaumur to c'],
+      ['559.725 delisle to c', '559.726 delisle to c'],
+      ['-90.1395 newton temperature to c', '-90.1405 newton temperature to c'],
+      ['-135.90375 romer to c', '-135.90475 romer to c'],
+    ]) {
+      assert.ok(evaluate(valid), valid);
+      assert.equal(evaluate(invalid), null, invalid);
+    }
+  });
+
   it('round-trips a swapped conversion when the internal result is preserved', () => {
     const forward = evaluate('1 km in mi');
     const roundedReverse = evaluate(`${formatValue(forward.result, forward.to)} mi in km`);
@@ -262,7 +296,7 @@ describe('supported pairs catalog', () => {
     }
   });
 
-  it('lists every directed pair within each category', () => {
+  it('lists and round-trips every directed pair within each category', () => {
     const catalog = supportedPairs();
     assert.equal(catalog.length, 59);
     for (const group of catalog) {
@@ -277,6 +311,7 @@ describe('supported pairs catalog', () => {
         assert.equal(conversion.to.category, pair.to.category, pair.query);
         assert.equal(conversion.to.symbol, pair.to.symbol, pair.query);
         assert.notEqual(conversion.value, 1, pair.query);
+        close(convert(conversion.result, conversion.to, conversion.from), conversion.value, 12);
       }
       assert.ok(group.pairs.every(pair => !pair.from.outputOnly));
     }

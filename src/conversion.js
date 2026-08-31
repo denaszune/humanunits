@@ -32,15 +32,17 @@ add('area', [['mm²','square millimeter',1e-6,['mm2']],['cm²','square centimete
 add('volume', [['µL','microliter',1e-6],['mL','milliliter',.001],['cL','centiliter',.01],['dL','deciliter',.1],['L','liter',1,['litre']],['m³','cubic meter',1000,['m3']],['cm³','cubic centimeter',.001,['cm3','cc']],['mm³','cubic millimeter',1e-6,['mm3']],['in³','cubic inch',.016387064,['in3']],['ft³','cubic foot',28.316846592,['ft3']],['yd³','cubic yard',764.554857984,['yd3']],['tsp (US)','US teaspoon',.00492892159375,['tsp']],['tbsp (US)','US tablespoon',.01478676478125,['tbsp']],['fl oz (US)','US fluid ounce',.0295735295625,['fl oz']],['cup (US)','US cup',.2365882365,['cup']],['pt (US)','US liquid pint',.473176473,['pint']],['qt (US)','US liquid quart',.946352946,['quart']],['gal (US)','US liquid gallon',3.785411784,['gallon','gal']],['fl oz (Imp)','Imperial fluid ounce',.0284130625],['gill (Imp)','Imperial gill',.1420653125],['pt (Imp)','Imperial pint',.56826125],['qt (Imp)','Imperial quart',1.1365225],['gal (Imp)','Imperial gallon',4.54609],['tsp (metric)','metric teaspoon',.005],['tbsp (metric)','metric tablespoon',.015],['cup (metric)','metric cup',.25],['tbsp (AU)','Australian tablespoon',.02],['dry pt (US)','US dry pint',.5506104713575],['dry qt (US)','US dry quart',1.101220942715],['dry gal (US)','US dry gallon',4.40488377086],['pk','US peck',8.80976754172],['bu','US bushel',35.23907016688],['bbl (oil)','oil barrel',158.987294928]]);
 add('mass', [['µg','microgram',1e-6],['mg','milligram',.001],['cg','centigram',.01],['g','gram',1],['dag','decagram',10],['hg','hectogram',100],['kg','kilogram',1000,['kilo']],['t','tonne',1e6,['metric ton']],['ct','carat',.2],['gr','grain',.06479891],['dr','avoirdupois dram',1.7718451953125],['oz','avoirdupois ounce',28.349523125,['ounce']],['lb','pound',453.59237],['st','stone',6350.29318],['cwt (US)','US hundredweight',45359.237],['cwt (Imp)','Imperial hundredweight',50802.34544],['ton (US)','short ton',907184.74,['ton']],['ton (Imp)','long ton',1016046.9088],['oz t','troy ounce',31.1034768],['lb t','troy pound',373.2417216]]);
 
-function affine(symbol, name, toBase, fromBase, extra = []) { units.push(unitDefinition('temperature', symbol, name, { toBase, fromBase }, extra)); }
-affine('K','kelvin',v=>v,v=>v);
-affine('°C','degree Celsius',v=>v+273.15,v=>v-273.15,['celsius','c']);
-affine('°F','degree Fahrenheit',v=>(v+459.67)*5/9,v=>v*9/5-459.67,['fahrenheit','f']);
-affine('°R','degree Rankine',v=>v*5/9,v=>v*9/5,['rankine']);
-affine('°Ré','degree Reaumur',v=>v*1.25+273.15,v=>(v-273.15)*.8,['reaumur']);
-affine('°De','degree Delisle',v=>373.15-v*2/3,v=>(373.15-v)*1.5,['delisle']);
-affine('°N','degree Newton',v=>v*100/33+273.15,v=>(v-273.15)*33/100,['newton','newton temperature']);
-affine('°Rø','degree Romer',v=>(v-7.5)*40/21+273.15,v=>(v-273.15)*21/40+7.5,['romer']);
+// Celsius is the numerical reference for absolute temperatures. Keeping the
+// common offsets small avoids exposing floating-point cancellation at 15 digits.
+function affine(symbol, name, toBase, fromBase, validRange, extra = []) { units.push(unitDefinition('temperature', symbol, name, { toBase, fromBase, ...validRange }, extra)); }
+affine('K','kelvin',v=>v-273.15,v=>v+273.15,{ minimum: 0 });
+affine('°C','degree Celsius',v=>v,v=>v,{ minimum: -273.15 },['celsius','c']);
+affine('°F','degree Fahrenheit',v=>(v-32)*5/9,v=>v*9/5+32,{ minimum: -459.67 },['fahrenheit','f']);
+affine('°R','degree Rankine',v=>(v-491.67)*5/9,v=>(v+273.15)*9/5,{ minimum: 0 },['rankine']);
+affine('°Ré','degree Reaumur',v=>v*1.25,v=>v*.8,{ minimum: -218.52 },['reaumur']);
+affine('°De','degree Delisle',v=>100-v*2/3,v=>(100-v)*1.5,{ maximum: 559.725 },['delisle']);
+affine('°N','degree Newton',v=>v*100/33,v=>v*33/100,{ minimum: -90.1395 },['newton','newton temperature']);
+affine('°Rø','degree Romer',v=>(v-7.5)*40/21,v=>v*21/40+7.5,{ minimum: -135.90375 },['romer']);
 
 add('speed', [['m/s','meter per second',1],['km/h','kilometer per hour',1/3.6,['kph']],['mph','mile per hour',.44704],['ft/s','foot per second',.3048],['kn','knot',.5144444444444445],['Mach','Mach (approximate)',340.2933,['mach']]]);
 for (const unit of units.filter(unit => unit.category === 'speed')) unit.conversionGroup = 'pace-speed';
@@ -363,7 +365,7 @@ export function convert(value, from, to) {
 export function evaluate(input) {
   const parsed = parseQuery(input);
   if (!parsed) return null;
-  if (parsed.from.category === 'temperature' && parsed.from.toBase(parsed.value) < 0) return null;
+  if (parsed.from.category === 'temperature' && (parsed.value < (parsed.from.minimum ?? -Infinity) || parsed.value > (parsed.from.maximum ?? Infinity))) return null;
   if ((parsed.from.category === 'fuel economy' || parsed.from.category === 'pace') && parsed.value <= 0) return null;
   const result = convert(parsed.value, parsed.from, parsed.to);
   if (!Number.isFinite(result) || parsed.to.category === 'pace' && result <= 0) return null;
