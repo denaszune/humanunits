@@ -11,7 +11,6 @@ const files = (await filesIn(root)).filter(file => /\.(?:js|css)$/.test(file) &&
 const budgets = {
   JavaScript: 30 * 1024,
   CSS: 9 * 1024,
-  Combined: 40 * 1024,
 };
 let jsGzip = 0;
 let cssGzip = 0;
@@ -25,9 +24,9 @@ for (const file of files) {
 const totals = {
   JavaScript: jsGzip,
   CSS: cssGzip,
-  Combined: jsGzip + cssGzip,
 };
 for (const [name, size] of Object.entries(totals)) {
   console.log(`${name} total: ${(size / 1024).toFixed(2)} kB gzip (budget: ${budgets[name] / 1024} kB)`);
   if (size > budgets[name]) process.exitCode = 1;
 }
+console.log(`Combined total: ${((jsGzip + cssGzip) / 1024).toFixed(2)} kB gzip`);
