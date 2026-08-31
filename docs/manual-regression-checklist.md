@@ -30,17 +30,18 @@ Verify the displayed result as well as whether the query is accepted or rejected
 
 - [ ] Natural language: `10 km in miles` gives approximately `6.213711922 mi`.
 - [ ] Alternate connector and question mark: `2 HOURS as minutes?` gives `120 min`.
-- [ ] Clock-style pace: `7:00 min/mi to min/km` gives `4:21 min/km`.
+- [ ] Clock-style pace: with the default 6 significant digits, `7:00 min/mi to min/km` gives `4:20.976 min/km`.
+- [ ] Pace precision: with 6 significant digits selected, `4:45 min/mi to min/km` gives `2:57.0906 min/km`; the equivalent decimal-style input gives `2.95151 min/km`.
 - [ ] Scientific notation: `-2.5e3 µm → mm` gives `-2.5 mm`.
 - [ ] Case-sensitive symbols: `1 MW to W` gives `1,000,000 W`; `1 Mm to km` gives `1,000 km`; `1 b to B` gives `0.125 B`.
-- [ ] Invalid grouping and clocks such as `1,5 m to cm`, `1,2,3 m to cm`, and `7:99 min/mi to min/km` are rejected.
+- [ ] Invalid grouping and clocks such as `1,5 m to cm`, `1,2,3 m to cm`, `4:4 min/mi to min/km`, and `7:99 min/mi to min/km` are rejected.
 - [ ] Negative temperature: `−40 degrees Fahrenheit to celsius` gives `-40 °C`.
 - [ ] Unicode square symbols: `1 m² to cm2` gives `10,000 cm²`.
 - [ ] Unicode cubic symbols: `1 m³ as liters` gives `1,000 L`.
-- [ ] Running pace: `4:00 min/km to min/mi` gives about `6.437376 min/mi`.
+- [ ] Running pace: `4:00 min/km to min/mi` gives `6:26.2428 min/mi`.
 - [ ] Pace to speed: `7:00 /mi to mph` gives about `8.571428571 mph`.
-- [ ] Swimming metric-to-yard pace: `1:30 /100 m to /100 yd` gives `1:22`.
-- [ ] Swimming yard-to-metric pace: `1:20 /100 yd to /100 m` gives `1:27`.
+- [ ] Swimming metric-to-yard pace: `1:30 /100 m to /100 yd` gives `1:22.296`.
+- [ ] Swimming yard-to-metric pace: `1:20 /100 yd to /100 m` gives `1:27.4891`.
 - [ ] Rowing split: `1:45 /500 m to /km` gives `3:30`.
 - [ ] Arbitrary-distance pace: `2:00 /200 m to /100 m` gives `1:00`.
 - [ ] Absolute temperature: `32 f to c` gives `0 °C`.

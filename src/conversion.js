@@ -285,7 +285,7 @@ export function supportedPairs() {
 }
 
 const decimalPattern = '(?:(?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d*)?|\\.\\d+)';
-const numericPattern = `[+-]?(?:(?:\\d+:)?\\d+(?::\\d+(?:\\.\\d*)?)?|${decimalPattern}(?:e[+-]?\\d+)?)`;
+const numericPattern = `[+-]?(?:\\d+(?::\\d{2})?:\\d{2}(?:\\.\\d*)?|${decimalPattern}(?:e[+-]?\\d+)?)`;
 
 export function parseQuery(input) {
   if (typeof input !== 'string') return null;
@@ -388,9 +388,12 @@ export function formatValue(value, unit, clockStyle = false, maximumSignificantD
   }
   if (!clockStyle || unit?.category !== 'pace' || !Number.isFinite(value)) return formatNumber(value, maximumSignificantDigits);
   const unitSeconds = /^min\//.test(unit.symbol) ? 60 : /^h\//.test(unit.symbol) ? 3600 : 1;
-  const fractionalDigits = maximumSignificantDigits <= 6 ? 0 : maximumSignificantDigits <= 10 ? 2 : 5;
-  const factor = 10 ** fractionalDigits;
-  const roundedSeconds = Math.round(Math.abs(value) * unitSeconds * factor) / factor;
+  const absoluteValue = Math.abs(value);
+  const roundedValue = absoluteValue ? Number(absoluteValue.toPrecision(maximumSignificantDigits)) : 0;
+  const valueFractionalDigits = absoluteValue ? Math.max(0, maximumSignificantDigits - 1 - Math.floor(Math.log10(absoluteValue))) : 0;
+  const unitDecimalShift = unitSeconds === 60 ? 1 : unitSeconds === 3600 ? 2 : 0;
+  const fractionalDigits = Math.min(100, Math.max(0, valueFractionalDigits - unitDecimalShift));
+  const roundedSeconds = Number((roundedValue * unitSeconds).toFixed(fractionalDigits));
   const minutes = Math.floor(roundedSeconds / 60);
   const fixedSeconds = (roundedSeconds - minutes * 60).toFixed(fractionalDigits).padStart(fractionalDigits ? fractionalDigits + 3 : 2, '0');
   const seconds = fractionalDigits ? fixedSeconds.replace(/\.?0+$/, '') : fixedSeconds;
