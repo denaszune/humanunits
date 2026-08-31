@@ -12,6 +12,81 @@ test('has no automatically detectable accessibility violations on primary views'
   }
 });
 
+test('keeps expanded category cards in place and fills the available row width', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('./#pairs');
+
+  const categoryGrid = page.locator('.category-grid').first();
+  const massCard = page.getByRole('button', { name: 'Mass 20 units', exact: true });
+  const massItem = page.locator('.category-item').filter({ has: massCard });
+  const cardBounds = () => massCard.evaluate(card => {
+    const bounds = card.getBoundingClientRect();
+    return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
+  });
+  const desktopCardBefore = await cardBounds();
+  await massCard.evaluate(card => card.click());
+
+  const desktopBounds = await Promise.all([categoryGrid.boundingBox(), massItem.locator('.unit-panel').boundingBox()]);
+  expect(desktopBounds.every(Boolean)).toBe(true);
+  expect(Math.abs(desktopBounds[0].x - desktopBounds[1].x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(desktopBounds[0].width - desktopBounds[1].width)).toBeLessThanOrEqual(1);
+  expect(await cardBounds()).toEqual(desktopCardBefore);
+  await massCard.hover();
+  expect(await cardBounds()).toEqual(desktopCardBefore);
+  const pressedAt = await massCard.boundingBox();
+  await page.mouse.move(pressedAt.x + pressedAt.width / 2, pressedAt.y + pressedAt.height / 2);
+  await page.mouse.down();
+  await expect.poll(() => massCard.evaluate(card => getComputedStyle(card).transform)).toContain('0.98');
+  const pressedStyles = await massItem.evaluate(item => ({
+    background: getComputedStyle(item).backgroundColor,
+    cardBorder: getComputedStyle(item.querySelector('.category-card')).borderTopColor,
+    cardBottomWidth: getComputedStyle(item.querySelector('.category-card')).borderBottomWidth,
+    cardBottomRadius: getComputedStyle(item.querySelector('.category-card')).borderBottomLeftRadius,
+    panelBorder: getComputedStyle(item.querySelector('.unit-panel')).borderTopColor,
+    panelTransform: getComputedStyle(item.querySelector('.unit-panel')).transform,
+  }));
+  expect(pressedStyles.background).toBe('rgba(0, 0, 0, 0)');
+  // open card and panel are two separate fully-rounded surfaces sharing one accent border
+  expect(pressedStyles.cardBorder).toBe(pressedStyles.panelBorder);
+  expect(pressedStyles.cardBottomWidth).toBe('1px');
+  expect(pressedStyles.cardBottomRadius).not.toBe('0px');
+  const pressedCard = await cardBounds();
+  const pressedPanel = await massItem.locator('.unit-panel').boundingBox();
+  expect(Math.abs(pressedCard.width / desktopCardBefore.width - .98)).toBeLessThan(.005);
+  // pressing the card must not drag the row-wide panel along with it
+  expect(Math.abs(pressedPanel.width - desktopBounds[1].width)).toBeLessThanOrEqual(1);
+  expect(pressedStyles.panelTransform).toBe('none');
+  await page.mouse.move(0, 0);
+  await page.mouse.up();
+  await expect.poll(() => massCard.evaluate(card => getComputedStyle(card).transform)).toBe('none');
+  const panelSpacing = await massItem.evaluate(item => {
+    const card = item.querySelector('.category-card').getBoundingClientRect();
+    const panel = item.querySelector('.unit-panel').getBoundingClientRect();
+    const nextCard = item.nextElementSibling.getBoundingClientRect();
+    return { above: panel.top - card.bottom, below: nextCard.top - panel.bottom };
+  });
+  expect(Math.abs(panelSpacing.above - panelSpacing.below)).toBeLessThanOrEqual(1);
+  const unitColumnCount = () => massItem.locator('.unit-chips button').evaluateAll(buttons =>
+    new Set(buttons.map(button => Math.round(button.getBoundingClientRect().x))).size);
+  expect(await unitColumnCount()).toBeGreaterThan(2);
+
+  await page.setViewportSize({ width: 600, height: 844 });
+  await page.reload();
+  const tabletCardBefore = await cardBounds();
+  await massCard.evaluate(card => card.click());
+  const tabletBounds = await Promise.all([categoryGrid.boundingBox(), massItem.locator('.unit-panel').boundingBox()]);
+  expect(Math.abs(tabletBounds[0].x - tabletBounds[1].x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(tabletBounds[0].width - tabletBounds[1].width)).toBeLessThanOrEqual(1);
+  expect(await cardBounds()).toEqual(tabletCardBefore);
+  expect(await unitColumnCount()).toBe(2);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(unitColumnCount).toBe(2);
+  const mobileBounds = await Promise.all([categoryGrid.boundingBox(), massItem.boundingBox()]);
+  expect(Math.abs(mobileBounds[0].x - mobileBounds[1].x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(mobileBounds[0].width - mobileBounds[1].width)).toBeLessThanOrEqual(1);
+});
+
 test('follows the system theme and persists explicit theme choices', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.goto('./');
@@ -165,7 +240,7 @@ test('keeps dark-theme brand green scoped to the logo and result band', async ({
   await category.locator('.category-card').click();
   await expect.poll(async () => {
     const styles = await category.evaluate(element => ({
-      category: getComputedStyle(element).backgroundColor,
+      category: getComputedStyle(element.querySelector('.category-card')).backgroundColor,
       panel: getComputedStyle(element.querySelector('.unit-panel')).backgroundColor,
       icon: getComputedStyle(element.querySelector('.category-card > span:last-child')).color,
     }));

@@ -416,15 +416,14 @@ h2 { font-size: var(--type-section-title); font-weight: 800; letter-spacing: .06
 .category-section { margin-top: 1.4rem; }
 .category-section h3 { margin: 0 0 .6rem; color: var(--muted); font-size: var(--type-eyebrow); font-weight: 800; letter-spacing: .08em; line-height: 1.25; text-transform: uppercase; }
 .category-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; align-items: start; }
-.category-item { min-width: 0; border: 1px solid var(--card-border); border-radius: var(--radius-md); background: var(--card-surface); overflow: hidden; transition: border-color 140ms var(--ease), background-color 140ms var(--ease); }
-.category-card { width: 100%; min-height: 4rem; padding: .7rem .8rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.category-item { min-width: 0; display: grid; row-gap: .65rem; }
+.category-card { appearance: none; width: 100%; min-height: 4rem; padding: .7rem .8rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; border: 0; background: transparent; text-align: left; cursor: pointer; }
 .category-card strong, .category-card small { display: block; }
 .category-card strong { font-size: var(--type-card-title); font-weight: 750; line-height: 1.25; }
 .category-card small { margin-top: .2rem; color: var(--muted); font-size: var(--type-count); line-height: 1.3; }
 .category-card > span:last-child { position: relative; width: var(--control-height); height: var(--control-height); flex: 0 0 var(--control-height); display: grid; place-items: center; border-radius: 50%; color: var(--link-hover-text); font-size: 0; }
-.category-card:hover > span:last-child { background: var(--soft-green); }
 .category-card:focus-visible { outline-offset: -3px; }
-.unit-panel { padding: var(--space-3); border-top: 1px solid var(--border); background: var(--panel-surface); }
+.unit-panel { position: relative; padding: var(--space-3); border: 1px solid var(--card-border); border-radius: var(--radius-md); background: var(--panel-surface); }
 .unit-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
 .unit-chips button { min-width: 0; min-height: 58px; max-width: 100%; padding: var(--space-2) var(--space-3); border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--control-surface); cursor: pointer; text-align: left; transition: border-color 140ms var(--ease), background-color 140ms var(--ease), color 140ms var(--ease); }
 .unit-chips button strong, .unit-chips button span { display: block; overflow-wrap: anywhere; }
@@ -536,19 +535,34 @@ h1 { color: var(--deep-green); text-wrap: balance; }
 .actions button:active { transform: translateY(1px); background: var(--on-ink-active); }
 .browse-page { max-width: 920px; }
 .browse-search input { min-height: 52px; border-color: var(--border-strong); border-radius: var(--radius-md); background: var(--control-surface); outline: 0; }
-.browse-search input:focus { border-color: var(--focus-border); box-shadow: 0 0 0 3px var(--focus-glow-soft); }
+.browse-search input:focus { border-color: var(--focus-border); box-shadow: 0 0 0 3px var(--focus-glow); }
 .compact-pairs a { min-height: var(--control-height); position: relative; border-radius: var(--radius-sm); background: var(--card-surface); font-variant-numeric: lining-nums tabular-nums; display: grid; place-items: center; transition: border-color var(--duration-state) var(--ease), background var(--duration-state) var(--ease), transform var(--duration-fast) var(--ease); }
 .compact-pairs a::before { content: ''; position: absolute; top: 7px; bottom: 7px; left: 5px; border-left: 2px solid var(--accent); opacity: .7; }
 .compact-pairs a:hover { background: var(--card-hover-surface); }
-.category-item { border-color: var(--card-border); border-radius: var(--radius-md); background: var(--card-surface); transition: border-color 140ms var(--ease), background-color 140ms var(--ease); }
-.category-item:has(.category-card:hover), .category-item:has(.category-card:focus-visible) { border-color: var(--card-hover-border); background: var(--category-hover-surface); }
-.category-item:has(.category-card[aria-expanded="true"]) { border-color: var(--active-border); background: var(--category-expanded-surface); }
-.category-card { min-height: 64px; }
+.category-card { min-height: 64px; border: 1px solid var(--card-border); border-radius: var(--radius-md); background: var(--card-surface); }
+.category-card:not(:disabled):is(:hover, :focus-visible) { border-color: var(--card-hover-border); background: var(--category-hover-surface); }
+.category-card[aria-expanded="true"] { border-color: var(--active-border); background: var(--category-expanded-surface); box-shadow: 0 0 0 3px var(--focus-glow-soft); }
 .category-card > span:last-child { color: var(--accent); font-size: 0; }
 .category-card > span:last-child::before, .category-card > span:last-child::after { content: ''; position: absolute; top: 50%; left: 50%; width: 14px; height: 2px; border-radius: 2px; background: currentColor; transform: translate(-50%, -50%); }
 .category-card > span:last-child::after { transform: translate(-50%, -50%) rotate(90deg); transition: transform 140ms var(--ease), opacity 140ms var(--ease); }
 .category-card[aria-expanded="true"] > span:last-child::after { opacity: 0; transform: translate(-50%, -50%) rotate(90deg) scaleX(0); }
-.unit-panel { background: var(--panel-surface); }
+.unit-panel { border-color: var(--active-border); background: var(--panel-surface); }
+.category-item.expanded .unit-panel { width: calc(300% + 1.3rem); }
+.category-item:nth-child(3n + 2).expanded .unit-panel { left: calc(-100% - .65rem); }
+.category-item:nth-child(3n).expanded .unit-panel { left: calc(-200% - 1.3rem); }
+.category-item.expanded .unit-chips { grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); }
+@media (max-width: 720px) {
+  .category-item.expanded .unit-panel { width: calc(200% + .65rem); }
+  .category-item:nth-child(odd).expanded .unit-panel { left: 0; }
+  .category-item:nth-child(even).expanded .unit-panel { left: calc(-100% - .65rem); }
+  .category-item.expanded .unit-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .category-item:nth-child(n).expanded .unit-panel { width: 100%; left: 0; }
+}
+@media (max-width: 380px) {
+  .category-item.expanded .unit-chips { grid-template-columns: 1fr; }
+}
 .result-grid button { background: var(--card-surface); transition: border-color var(--duration-state) var(--ease), background var(--duration-state) var(--ease), transform var(--duration-fast) var(--ease); }
 .unit-chips button { background: var(--control-surface); transition: border-color var(--duration-state) var(--ease), background var(--duration-state) var(--ease), transform var(--duration-fast) var(--ease); }
 .result-grid button:hover, .result-grid button:focus-visible, .unit-chips button:not(:disabled):hover, .unit-chips button:not(:disabled):focus-visible { border-color: var(--card-hover-border); background: var(--card-hover-surface); }
@@ -755,10 +769,10 @@ h1 { color: var(--deep-green); text-wrap: balance; }
   transition: color var(--motion-fast) var(--ease-out), background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out), transform var(--motion-instant) var(--ease-out);
 }
 .converter-composer .result-card { transition: color var(--motion-fast) var(--ease-out), background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out); }
+.category-card:not(:disabled):active,
 .header-action:not(:disabled):active,
 .text-button:not(:disabled):active,
 .precision-control button:not(:disabled):active,
-.category-card:not(:disabled):active,
 .result-grid button:not(:disabled):active,
 .unit-chips button:not(:disabled):active,
 .library-reuse:not(:disabled):active,
@@ -779,11 +793,11 @@ h1 { color: var(--deep-green); text-wrap: balance; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .category-card:active,
   .header-action:active,
   .text-button:active,
   .clear-query:active,
   .precision-control button:active,
-  .category-card:active,
   .result-grid button:active,
   .unit-chips button:active,
   .library-reuse:active,
