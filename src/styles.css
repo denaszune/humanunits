@@ -538,8 +538,9 @@ h1 { color: var(--deep-green); text-wrap: balance; }
 .compact-pairs a::before { content: ''; position: absolute; top: 7px; bottom: 7px; left: 5px; border-left: 2px solid var(--accent); opacity: .7; }
 .compact-pairs a:hover { background: var(--card-hover-surface); }
 .category-card { min-height: 64px; border: 1px solid var(--card-border); border-radius: var(--radius-md); background: var(--card-surface); }
-.category-card:not(:disabled):is(:hover, :focus-visible) { border-color: var(--card-hover-border); background: var(--category-hover-surface); }
+.category-card:not(:disabled):not([aria-expanded="true"]):is(:hover, :focus-visible) { border-color: var(--card-hover-border); background: var(--category-hover-surface); }
 .category-card[aria-expanded="true"] { border-color: var(--active-border); background: var(--category-expanded-surface); box-shadow: 0 0 0 3px var(--focus-glow-soft); }
+.category-card[aria-expanded="true"]:is(:hover, :focus-visible) { background: var(--card-hover-surface); box-shadow: 0 0 0 3px var(--focus-glow); }
 .category-card > span:last-child { color: var(--accent); font-size: 0; }
 .category-card > span:last-child::before, .category-card > span:last-child::after { content: ''; position: absolute; top: 50%; left: 50%; width: 14px; height: 2px; border-radius: 2px; background: currentColor; transform: translate(-50%, -50%); }
 .category-card > span:last-child::after { transform: translate(-50%, -50%) rotate(90deg); transition: transform 140ms var(--ease), opacity 140ms var(--ease); }
