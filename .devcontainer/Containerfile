@@ -1,0 +1,72 @@
+# Codex / Claude dev container for Human Units.
+#
+# Debian rather than the Nix image the NixOS Zenbook workspace uses: the
+# project pins Node 24 and pnpm 11.22.0 (package.json), and the browser
+# tests need Playwright's own Chromium build, whose system libraries
+# `playwright install --with-deps` fetches with apt. Playwright only runs
+# the browser build that matches its own version exactly, and nixpkgs ships
+# a different one.
+#
+# Rootless Podman with no-new-privileges. Everything runs as root inside the
+# container's own user namespace: the host user is root in here, so root is
+# the only user that can write the bind-mounted workspace.
+#
+# Chromium is baked into the image at PLAYWRIGHT_VERSION; keep it equal to
+# @playwright/test in pnpm-lock.yaml. After a bump, the postCreateCommand's
+# `playwright install chromium` downloads the matching build into the same
+# directory, so the container keeps working until the next image rebuild.
+#
+# No secrets: the project has none, so there is no placeholder mount and no
+# pre-commit guard. .git/hooks and .git/config are read-only host mounts
+# (devcontainer.json), so nothing in here reaches the host through git.
+FROM docker.io/library/node:24-bookworm-slim
+
+ARG PNPM_VERSION=11.22.0
+ARG PLAYWRIGHT_VERSION=1.62.1
+
+ENV DEBIAN_FRONTEND=noninteractive
+# pnpm's global bin directory and content-addressable store; devcontainer.json
+# mounts a named volume here so installs stay fast across rebuilds.
+ENV PNPM_HOME=/root/.local/share/pnpm
+# Browser builds live in the image, not under /root/.cache.
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
+# Codex and Claude Code keep login, history and memory here; named volumes
+# in devcontainer.json make them survive a rebuild.
+ENV CODEX_HOME=/root/.codex
+ENV CLAUDE_CONFIG_DIR=/root/.claude
+ENV PATH=$PNPM_HOME:$PATH
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash-completion \
+    ca-certificates \
+    curl \
+    fd-find \
+    gh \
+    git \
+    jq \
+    less \
+    openssh-client \
+    procps \
+    ripgrep \
+    unzip \
+    wget \
+    zip \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/fdfind /usr/local/bin/fd
+
+# pnpm at the version package.json pins (installing it explicitly avoids
+# Corepack's interactive download prompt, as CI does) and the Codex CLI.
+RUN npm install -g "pnpm@${PNPM_VERSION}" @openai/codex@latest \
+    && npm cache clean --force
+
+# Playwright's Chromium plus its shared libraries (the apt step).
+RUN npx --yes "playwright@${PLAYWRIGHT_VERSION}" install --with-deps chromium \
+    && rm -rf /var/lib/apt/lists/* /root/.npm/_npx
+
+# The workspace bind mount can show up owned by another uid inside the
+# rootless user namespace; every /workspace/* mount is a project of yours.
+RUN git config --system --add safe.directory '*'
+
+WORKDIR /workspace/humanunits
+
+CMD ["sleep", "infinity"]

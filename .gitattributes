@@ -1,0 +1,3 @@
+# Normalise to LF everywhere; the repository was first checked out on
+# Windows and is now edited on Linux.
+* text=auto eol=lf

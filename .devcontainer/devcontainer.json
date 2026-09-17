@@ -1,0 +1,54 @@
+{
+  "name": "Human Units Workspace",
+  "build": {
+    "dockerfile": "Containerfile"
+  },
+  "workspaceFolder": "/workspace/humanunits",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/humanunits,type=bind",
+  "mounts": [
+    "source=${localWorkspaceFolder}/.git/hooks,target=/workspace/humanunits/.git/hooks,type=bind,readonly",
+    "source=${localWorkspaceFolder}/.git/config,target=/workspace/humanunits/.git/config,type=bind,readonly",
+    "source=humanunits-pnpm-store,target=/root/.local/share/pnpm,type=volume",
+    "source=humanunits-codex-state,target=/root/.codex,type=volume",
+    "source=humanunits-gh-state,target=/root/.config/gh,type=volume",
+    "source=humanunits-claude-state,target=/root/.claude,type=volume"
+  ],
+  "containerEnv": {
+    "CODEX_HOME": "/root/.codex",
+    "CLAUDE_CONFIG_DIR": "/root/.claude",
+    "GIT_AUTHOR_NAME": "Andrew Loiacono",
+    "GIT_AUTHOR_EMAIL": "4480274+denaszune@users.noreply.github.com",
+    "GIT_COMMITTER_NAME": "Andrew Loiacono",
+    "GIT_COMMITTER_EMAIL": "4480274+denaszune@users.noreply.github.com"
+  },
+  "remoteUser": "root",
+  "containerUser": "root",
+  "runArgs": [
+    "--security-opt=no-new-privileges",
+    "--hostname=humanunits-dev"
+  ],
+  "forwardPorts": [3000, 4173],
+  "portsAttributes": {
+    "3000": {
+      "label": "rsbuild dev",
+      "onAutoForward": "notify"
+    },
+    "4173": {
+      "label": "preview / e2e server",
+      "onAutoForward": "silent"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "openai.chatgpt",
+        "anthropic.claude-code"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "files.eol": "\n"
+      }
+    }
+  },
+  "postCreateCommand": "gh auth setup-git && pnpm install --frozen-lockfile && pnpm exec playwright install chromium && printf '\\nHuman Units container ready.\\n'; node --version; pnpm --version; codex --version; git --version"
+}
