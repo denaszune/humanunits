@@ -37,7 +37,7 @@ Aliases, scientific notation, Unicode symbols, compound units, and clock-style p
 
 ## Run locally
 
-Requires Node.js 24 and pnpm 11.22.0.
+Requires Node.js 24 and pnpm 12.4.2.
 
 ```sh
 pnpm install

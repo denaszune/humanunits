@@ -15,7 +15,7 @@ Configure the connected repository with these exact values:
 | Build output directory | `dist` |
 | Root directory | Repository root |
 | Environment variable | `NODE_VERSION=24` |
-| Environment variable | `PNPM_VERSION=11.22.0` |
+| Environment variable | `PNPM_VERSION=12.4.2` |
 
 Do not define `BASE_PATH` in Cloudflare. The normal build targets the domain root. Pull requests and non-production branches receive automatic preview deployments.
 
