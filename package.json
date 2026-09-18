@@ -22,8 +22,8 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
-    "@playwright/test": "^1.62.1",
-    "@rsbuild/core": "^2.1.13",
+    "@playwright/test": "^1.63.0",
+    "@rsbuild/core": "^2.2.7",
     "@rsbuild/plugin-babel": "^2.1.0",
     "@rsbuild/plugin-solid": "^1.2.2",
     "babel-preset-solid": "^1.9.15"
@@ -31,5 +31,5 @@
   "engines": {
     "node": "24.x"
   },
-  "packageManager": "pnpm@11.22.0"
+  "packageManager": "pnpm@12.4.2"
 }

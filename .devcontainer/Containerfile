@@ -1,7 +1,7 @@
 # Codex / Claude dev container for Human Units.
 #
 # Debian rather than the Nix image the NixOS Zenbook workspace uses: the
-# project pins Node 24 and pnpm 11.22.0 (package.json), and the browser
+# project pins Node 24 and pnpm 12.4.2 (package.json), and the browser
 # tests need Playwright's own Chromium build, whose system libraries
 # `playwright install --with-deps` fetches with apt. Playwright only runs
 # the browser build that matches its own version exactly, and nixpkgs ships
@@ -21,8 +21,8 @@
 # (devcontainer.json), so nothing in here reaches the host through git.
 FROM docker.io/library/node:24-bookworm-slim
 
-ARG PNPM_VERSION=11.22.0
-ARG PLAYWRIGHT_VERSION=1.62.1
+ARG PNPM_VERSION=12.4.2
+ARG PLAYWRIGHT_VERSION=1.63.0
 
 ENV DEBIAN_FRONTEND=noninteractive
 # pnpm's global bin directory and content-addressable store; devcontainer.json
