@@ -1,6 +1,16 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
+async function setDecimals(page, target) {
+  const control = page.getByRole('group', { name: 'Decimals' });
+  for (let guard = 0; guard < 20; guard++) {
+    const current = Number(await control.locator('output').textContent());
+    if (current === target) return;
+    await control.getByRole('button', { name: current < target ? 'More decimals' : 'Fewer decimals' }).click();
+  }
+  throw new Error(`could not reach ${target} decimals`);
+}
+
 test('has no automatically detectable accessibility violations on primary views', async ({ page }) => {
   for (const colorScheme of ['light', 'dark']) {
     await page.emulateMedia({ colorScheme });
@@ -17,7 +27,7 @@ test('keeps expanded category cards in place and fills the available row width',
   await page.goto('./#pairs');
 
   const categoryGrid = page.locator('.category-grid').first();
-  const massCard = page.getByRole('button', { name: 'Mass 20 units', exact: true });
+  const massCard = page.getByRole('button', { name: 'Mass 23 units', exact: true });
   const massItem = page.locator('.category-item').filter({ has: massCard });
   const cardBounds = () => massCard.evaluate(card => {
     const bounds = card.getBoundingClientRect();
@@ -277,20 +287,20 @@ test('loads, updates, and copies shareable conversion URLs', async ({ page }) =>
       value: { writeText: async value => { window.__copiedText = value; } },
     });
   });
-  await page.goto('./?q=10k+to+mi&p=10');
+  await page.goto('./?q=10k+to+mi&d=10');
   const input = page.getByRole('textbox', { name: 'What would you like to convert?' });
   await expect(input).toHaveValue('10k to mi');
   await expect(page.locator('.result')).toContainText('6.213711922');
-  await expect(page.getByRole('group', { name: 'Significant digits' }).getByRole('button', { name: '10' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('group', { name: 'Decimals' }).locator('output')).toHaveText('10');
 
   await page.getByRole('button', { name: 'Copy link' }).click();
   await expect(page.getByRole('button', { name: 'Link copied' })).toBeVisible();
   const copied = new URL(await page.evaluate(() => window.__copiedText));
   expect(copied.searchParams.get('q')).toBe('10k to mi');
-  expect(copied.searchParams.get('p')).toBe('10');
+  expect(copied.searchParams.get('d')).toBe('10');
 
-  await page.getByRole('group', { name: 'Significant digits' }).getByRole('button', { name: '15' }).click();
-  await expect.poll(() => new URL(page.url()).searchParams.get('p')).toBe('15');
+  await setDecimals(page, 15);
+  await expect.poll(() => new URL(page.url()).searchParams.get('d')).toBe('15');
   await input.fill('5kg to lb');
   await expect.poll(() => new URL(page.url()).searchParams.has('q')).toBe(false);
   await input.press('Enter');
@@ -308,9 +318,9 @@ test('swaps compound feet and inches without visible round-trip drift', async ({
   await page.goto('./');
   const input = page.getByRole('textbox', { name: 'What would you like to convert?' });
   await input.fill('180 cm in ft + in');
-  await page.getByRole('group', { name: 'Significant digits' }).getByRole('button', { name: '15' }).click();
+  await setDecimals(page, 15);
   const compoundResult = page.locator('.result strong');
-  await expect(compoundResult).toHaveText('5 ft 10.866141732283 in');
+  await expect(compoundResult).toHaveText('5 ft 10.8661417322835 in');
   await expect.poll(() => compoundResult.evaluate(element => {
     const range = document.createRange();
     range.selectNodeContents(element);
@@ -411,5 +421,5 @@ test('refreshes through Cloudflare-style canonicalization and starts from the pr
   const input = page.getByRole('textbox', { name: 'What would you like to convert?' });
   await expect(input).toBeVisible();
   await input.fill('72 f to c');
-  await expect(page.locator('.result')).toContainText('22.2222');
+  await expect(page.locator('.result')).toContainText('22.222');
 });

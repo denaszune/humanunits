@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { convert, evaluate, formatNumber, formatValue, pairQuery, parseQuery, supportedPairs, supportedUnits } from './conversion.js';
+import { convert, evaluate, formatDecimals, formatNumber, formatValue, pairQuery, parseQuery, significantDigitsFor, supportedPairs, supportedUnits } from './conversion.js';
 import { movePin, prependPin, quickReusePins, reusePinnedPair } from './pins.js';
 
 function close(actual, expected, precision = 8) {
@@ -278,6 +278,47 @@ describe('conversion engine', () => {
     close(evaluate('5 ft 11 in to cm')?.result, 180.34);
     close(evaluate(`5' 11" to cm`)?.result, 180.34);
     assert.equal(pairQuery('ft + in', 'cm'), '5 ft 10 in to cm');
+  });
+
+  it('maps decimals to significant digits by magnitude and caps at the float limit', () => {
+    assert.equal(significantDigitsFor(6367.325634, 2), 6);
+    assert.equal(significantDigitsFor(6367.325634, 0), 4);
+    assert.equal(significantDigitsFor(0.00123, 2), 3);
+    assert.equal(significantDigitsFor(8.88e-6, 0), 1);
+    assert.equal(significantDigitsFor(1.25e12, 1), 2);
+    assert.equal(significantDigitsFor(149597870700, 10), 15);
+    assert.equal(significantDigitsFor(0.5, 15), 15);
+  });
+
+  it('formats decimals plainly for everyday results and never rounds small results to zero', () => {
+    const plain = value => decimals => formatDecimals(value, undefined, false, decimals);
+    assert.deepEqual([0, 1, 2, 3, 15].map(plain(6367.325634)), ['6,367', '6,367.3', '6,367.33', '6,367.326', '6,367.325634']);
+    assert.deepEqual([0, 2, 5].map(plain(0.00123)), ['0.001', '0.00123', '0.00123']);
+    assert.deepEqual([0, 2, 15].map(plain(8.88034964647626e-6)), ['9e-6', '8.88e-6', '8.88034964647626e-6']);
+    assert.deepEqual([0, 1, 3].map(plain(9.4607304725808e12)), ['9e+12', '9.5e+12', '9.461e+12']);
+    assert.deepEqual([0, 3, 15].map(plain(2000)), ['2,000', '2,000', '2,000']);
+    assert.equal(plain(149597870700)(15), '149,597,870,700');
+    assert.equal(plain(11.023113109243878)(15), '11.0231131092439');
+    assert.equal(plain(-40)(0), '-40');
+    assert.equal(plain(0)(3), '0');
+    const celsius = evaluate('72 f to c');
+    assert.deepEqual([0, 2, 3].map(decimals => formatDecimals(celsius.result, celsius.to, false, decimals)), ['22', '22.22', '22.222']);
+  });
+
+  it('applies decimals to the inches and the seconds of compound results', () => {
+    const height = evaluate('180 cm in ft + in');
+    assert.deepEqual([0, 1, 2, 3, 15].map(decimals => formatDecimals(height.result, height.to, false, decimals)),
+      ['5 ft 11 in', '5 ft 10.9 in', '5 ft 10.87 in', '5 ft 10.866 in', '5 ft 10.8661417322835 in']);
+    assert.equal(formatDecimals(evaluate('71 in in ft + in').result, height.to, false, 0), '5 ft 11 in');
+    assert.equal(formatDecimals(evaluate('6 ft to ft + in').result, height.to, false, 15), '6 ft 0 in');
+    assert.equal(formatDecimals(evaluate('-6 in in ft + in').result, height.to, false, 3), '-0 ft 6 in');
+    const pace = evaluate('4:45 min/mi to min/km');
+    assert.deepEqual([0, 1, 3, 10, 15].map(decimals => formatDecimals(pace.result, pace.to, pace.clockStyle, decimals)),
+      ['2:57', '2:57.1', '2:57.091', '2:57.0907897876', '2:57.09078978764']);
+    assert.equal(formatDecimals(pace.result, pace.to, false, 3), '2.952');
+    const longPace = evaluate('90:00 min/mi in min/km');
+    assert.equal(formatDecimals(longPace.result, longPace.to, longPace.clockStyle, 3), '55:55.404');
+    assert.equal(formatDecimals(-pace.result, pace.to, true, 0), '-2:57');
   });
 
   it('uses readable scientific notation for very small conversion results', () => {

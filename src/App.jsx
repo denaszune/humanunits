@@ -1,11 +1,13 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { evaluate, formatValue, pairQuery, supportedUnits } from './conversion.js';
+import { DEFAULT_DECIMALS, evaluate, formatDecimals, formatValue, MAX_DECIMALS, pairQuery, supportedUnits } from './conversion.js';
 import { movePin, prependPin, quickReusePins, reusePinnedPair } from './pins.js';
 import { isHistoryEntry, isPinEntry, readStoredCollection, writeStoredValue } from './storage.js';
 
 const HISTORY_KEY = 'humanunits:history:v1';
 const PINS_KEY = 'humanunits:pins:v1';
-const PRECISION_KEY = 'humanunits:precision:v1';
+const DECIMALS_KEY = 'humanunits:decimals:v1';
+const MIN_DECIMALS = 0;
+const validDecimals = value => Number.isInteger(value) && value >= MIN_DECIMALS && value <= MAX_DECIMALS ? value : null;
 const THEME_KEY = 'humanunits:theme:v1';
 const THEME_COLORS = { light: '#f6f2e8', dark: '#121212' };
 const themeOptions = [
@@ -17,8 +19,8 @@ const examples = ['10 km in miles', '72 f to c', '5 lb to kg'];
 const appRoot = import.meta.env.BASE_PATH === './' ? new URL('./', document.baseURI).pathname : import.meta.env.BASE_PATH;
 const licensePath = `${appRoot}#license`;
 const symbolPairQuery = (from, to, value) => pairQuery(from, to, value);
-const formattedResult = (value, precision) => {
-  const formatted = formatValue(value.result, value.to, value.clockStyle, precision);
+const formattedResult = (value, decimals) => {
+  const formatted = formatDecimals(value.result, value.to, value.clockStyle, decimals);
   return value.to.formatIncludesUnit ? formatted : `${formatted} ${value.to.symbol}`;
 };
 const scrollToTop = (smooth = true, scroller) => {
@@ -117,11 +119,11 @@ function save(key, value) {
   return writeStoredValue(localStorage, key, value);
 }
 
-function loadPrecision() {
+function loadDecimals() {
   try {
-    const value = JSON.parse(localStorage.getItem(PRECISION_KEY));
-    return [6, 10, 15].includes(value) ? value : 6;
-  } catch { return 6; }
+    const value = JSON.parse(localStorage.getItem(DECIMALS_KEY));
+    return validDecimals(value) ?? DEFAULT_DECIMALS;
+  } catch { return DEFAULT_DECIMALS; }
 }
 
 function loadThemePreference() {
@@ -142,20 +144,20 @@ function saveThemePreference(value) {
 function loadSharedConversion() {
   const params = new URLSearchParams(location.search);
   const sharedQuery = (params.get('q') || '').trim();
-  const sharedPrecision = Number(params.get('p'));
+  const sharedDecimals = params.has('d') ? Number(params.get('d')) : NaN;
   return {
     query: sharedQuery.length <= 500 ? sharedQuery : '',
-    precision: [6, 10, 15].includes(sharedPrecision) ? sharedPrecision : null,
+    decimals: validDecimals(sharedDecimals),
   };
 }
 
 export default function App() {
-  const savedPrecision = loadPrecision();
+  const savedDecimals = loadDecimals();
   const sharedConversion = loadSharedConversion();
   const [query, setQuery] = createSignal(sharedConversion.query);
   const [recentConversions, setRecentConversions] = createSignal(readStoredCollection(localStorage, HISTORY_KEY, isHistoryEntry).map(entry => {
     const value = evaluate(entry.query);
-    return value ? { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle)), result: formattedResult(value, savedPrecision) } : null;
+    return value ? { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle)), result: formattedResult(value, savedDecimals) } : null;
   }).filter(Boolean));
   const [pins, setPins] = createSignal(readStoredCollection(localStorage, PINS_KEY, isPinEntry).map(item => {
     const from = { symbol: item.from, category: item.fromCategory };
@@ -169,7 +171,7 @@ export default function App() {
   const [copyError, setCopyError] = createSignal(false);
   const [linkCopyError, setLinkCopyError] = createSignal(false);
   const [storageError, setStorageError] = createSignal(false);
-  const [precision, setPrecision] = createSignal(sharedConversion.precision ?? savedPrecision);
+  const [decimals, setDecimals] = createSignal(sharedConversion.decimals ?? savedDecimals);
   const [installPrompt, setInstallPrompt] = createSignal(null);
   const [updateReady, setUpdateReady] = createSignal(false);
   const [dockSuppressed, setDockSuppressed] = createSignal(false);
@@ -292,7 +294,11 @@ export default function App() {
   const conversion = createMemo(() => evaluate(query()));
   const resultText = createMemo(() => {
     const value = conversion();
-    return value ? formattedResult(value, precision()) : '';
+    return value ? formattedResult(value, decimals()) : '';
+  });
+  const resultNumber = createMemo(() => {
+    const value = conversion();
+    return value ? formatDecimals(value.result, value.to, value.clockStyle, decimals()) : '';
   });
 
   function fitResult() {
@@ -434,7 +440,7 @@ export default function App() {
 
   function remember(value = conversion()) {
     if (!value) return false;
-    const entry = { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle, precision())), result: formattedResult(value, precision()) };
+    const entry = { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle)), result: formattedResult(value, decimals()) };
     const next = [entry, ...recentConversions().filter(item => item.query !== entry.query)].slice(0, 8);
     setRecentConversions(next);
     persist(HISTORY_KEY, next);
@@ -442,15 +448,15 @@ export default function App() {
     return true;
   }
 
-  function sharedUrl(digits = precision()) {
+  function sharedUrl(digits = decimals()) {
     if (!conversion()) return null;
     const url = new URL(appRoot, location.origin);
     url.searchParams.set('q', query().trim());
-    url.searchParams.set('p', String(digits));
+    url.searchParams.set('d', String(digits));
     return url;
   }
 
-  function replaceWithSharedUrl(digits = precision()) {
+  function replaceWithSharedUrl(digits = decimals()) {
     const url = sharedUrl(digits);
     if (!url) return null;
     window.history.replaceState(window.history.state, '', url);
@@ -605,9 +611,10 @@ export default function App() {
     });
   }
 
-  function choosePrecision(value) {
-    setPrecision(value);
-    persist(PRECISION_KEY, value);
+  function chooseDecimals(value) {
+    if (validDecimals(value) === null) return;
+    setDecimals(value);
+    persist(DECIMALS_KEY, value);
     setLinkCopied(false);
     if (new URLSearchParams(location.search).has('q')) replaceWithSharedUrl(value);
   }
@@ -707,7 +714,7 @@ export default function App() {
       </div>
     </header>
 
-    <Show when={storageError()}><p class="storage-warning" role="alert">This browser blocked local storage. Your pins, history, precision, and theme changes will not survive a reload.</p></Show>
+    <Show when={storageError()}><p class="storage-warning" role="alert">This browser blocked local storage. Your pins, history, decimals, and theme changes will not survive a reload.</p></Show>
 
     <main ref={mainRef} tabindex="-1" aria-labelledby={page() === 'pairs' ? 'browse-title' : `${page()}-title`} classList={{ 'convert-main': page() === 'converter' }}>
       <Show when={page() === 'converter'} fallback={<Show when={page() === 'pairs'} fallback={<Show when={page() === 'library'} fallback={<Show when={page() === 'about'} fallback={<LicensePage />}><AboutPage onNavigate={handleInternalLink} /></Show>}><LibraryPage pins={pins()} recents={recentConversions()} onReuse={chooseBrowseQuery} onReusePin={reusePinnedQuery} onMovePin={reorderLibraryPin} onUnpin={removeLibraryPin} onRemoveRecent={removeLibraryRecent} onClear={clearLibraryRecent} /></Show>}>
@@ -755,14 +762,14 @@ export default function App() {
             <p id="input-hint" class="hint">Try {examples.map((text, index) => <><button type="button" class="text-button" onClick={() => chooseExampleQuery(text)}>{text}</button>{index < examples.length - 1 ? ', ' : ''}</>)}</p>
           </form>
 
-          <div class="result-card" classList={{ invalid: query().trim() && !conversion(), valid: Boolean(conversion()), 'precision-10': precision() === 10, 'precision-15': precision() === 15 }}>
+          <div class="result-card" classList={{ invalid: query().trim() && !conversion(), valid: Boolean(conversion()), 'precision-10': resultNumber().length > 8 && resultNumber().length < 14, 'precision-15': resultNumber().length >= 14 }}>
             <div class="result-heading">
               <span>{conversion() ? conversion().from.category : 'Result'}</span>
-              <div class="precision-control" role="group" aria-label="Significant digits"><span>Significant digits</span><For each={[6, 10, 15]}>{digits => <button type="button" classList={{ selected: precision() === digits }} aria-pressed={precision() === digits} onClick={() => choosePrecision(digits)}>{digits}</button>}</For></div>
+              <div class="precision-control" role="group" aria-label="Decimals"><span>Decimals</span><button type="button" aria-label="Fewer decimals" disabled={decimals() <= MIN_DECIMALS} onClick={() => chooseDecimals(decimals() - 1)}>−</button><output>{decimals()}</output><button type="button" aria-label="More decimals" disabled={decimals() >= MAX_DECIMALS} onClick={() => chooseDecimals(decimals() + 1)}>+</button></div>
             </div>
             <div ref={resultDisplay} class="result" aria-live="polite" aria-atomic="true">
               <Show when={conversion()} fallback={<span class="empty-result">{query().trim() ? 'Enter a complete conversion, such as 10 km in miles.' : 'Your result appears here.'}</span>}>
-                <strong classList={{ 'compound-value': conversion().to.format === 'feet-inches' }}>{formatValue(conversion().result, conversion().to, conversion().clockStyle, precision())}</strong> <Show when={!conversion().to.formatIncludesUnit}><span>{conversion().to.symbol}</span></Show>
+                <strong classList={{ 'compound-value': conversion().to.format === 'feet-inches' }}>{resultNumber()}</strong> <Show when={!conversion().to.formatIncludesUnit}><span>{conversion().to.symbol}</span></Show>
               </Show>
             </div>
             <Show when={conversion()}>

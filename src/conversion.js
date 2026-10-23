@@ -378,6 +378,44 @@ export function evaluate(input) {
 }
 const numberFormatters = new Map();
 export function formatNumber(value, maximumSignificantDigits = 10) { if(!Number.isFinite(value))return String(value);if(Object.is(value,-0))value=0;const magnitude=Math.abs(value);if(magnitude!==0&&(magnitude>=1e12||magnitude<1e-4)){const [c,e]=value.toExponential(Math.max(0,maximumSignificantDigits-1)).split('e');return `${c.replace(/\.?0+$/,'')}e${e}`;}if(!numberFormatters.has(maximumSignificantDigits))numberFormatters.set(maximumSignificantDigits,new Intl.NumberFormat('en-US',{maximumSignificantDigits}));return numberFormatters.get(maximumSignificantDigits).format(value); }
+// Display precision is chosen in decimals. Results of 1 or more get that many
+// digits after the decimal point; smaller and scientific-notation results get
+// that many digits after their first meaningful digit, so a nonzero result
+// never rounds to 0. Output never exceeds 15 significant digits, the float limit.
+export const DEFAULT_DECIMALS = 3, MAX_DECIMALS = 15;
+const MAX_SIGNIFICANT_DIGITS = 15;
+export function significantDigitsFor(value, decimals = DEFAULT_DECIMALS) {
+  const magnitude = Math.abs(value);
+  if (!Number.isFinite(value) || magnitude < 1 || magnitude >= 1e12) return Math.min(MAX_SIGNIFICANT_DIGITS, decimals + 1);
+  return Math.min(MAX_SIGNIFICANT_DIGITS, Math.floor(Math.log10(magnitude)) + 1 + decimals);
+}
+export function formatDecimals(value, unit, clockStyle = false, decimals = DEFAULT_DECIMALS) {
+  if (unit?.format === 'feet-inches' && Number.isFinite(value)) {
+    const sign = value < 0 ? '-' : '';
+    const totalInches = Math.abs(value) * 12;
+    let feet = Math.floor(totalInches / 12);
+    let remainder = totalInches - feet * 12;
+    if (remainder < 1e-9) remainder = 0;
+    const inchDigits = significantDigitsFor(remainder, decimals);
+    let inches = remainder ? Number(remainder.toPrecision(inchDigits)) : 0;
+    if (inches >= 12) {
+      feet += 1;
+      inches = 0;
+    }
+    return `${sign}${feet} ft ${formatNumber(inches, inchDigits)} in`;
+  }
+  if (!clockStyle || unit?.category !== 'pace' || !Number.isFinite(value)) return formatNumber(value, significantDigitsFor(value, decimals));
+  const unitSeconds = /^min\//.test(unit.symbol) ? 60 : /^h\//.test(unit.symbol) ? 3600 : 1;
+  const totalSeconds = Math.abs(value) * unitSeconds;
+  const integerDigits = totalSeconds >= 1 ? Math.floor(Math.log10(totalSeconds)) + 1 : 1;
+  const fractionalDigits = Math.max(0, Math.min(decimals, MAX_SIGNIFICANT_DIGITS - integerDigits));
+  const roundedSeconds = Number(totalSeconds.toFixed(fractionalDigits));
+  const minutes = Math.floor(roundedSeconds / 60);
+  const fixedSeconds = (roundedSeconds - minutes * 60).toFixed(fractionalDigits).padStart(fractionalDigits ? fractionalDigits + 3 : 2, '0');
+  const seconds = fractionalDigits ? fixedSeconds.replace(/\.?0+$/, '') : fixedSeconds;
+  const clock = `${minutes}:${seconds}`;
+  return value < 0 ? `-${clock}` : clock;
+}
 export function formatValue(value, unit, clockStyle = false, maximumSignificantDigits = 10) {
   if (unit?.format === 'feet-inches' && Number.isFinite(value)) {
     const sign = value < 0 ? '-' : '';

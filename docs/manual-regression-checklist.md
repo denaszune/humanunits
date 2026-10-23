@@ -28,10 +28,11 @@ Record the browser, operating system, viewport, build commit, base path, and whe
 
 Verify the displayed result as well as whether the query is accepted or rejected.
 
-- [ ] Natural language: `10 km in miles` gives approximately `6.213711922 mi`.
+- [ ] Natural language: `10 km in miles` gives `6.214 mi` with the default 3 decimals.
 - [ ] Alternate connector and question mark: `2 HOURS as minutes?` gives `120 min`.
-- [ ] Clock-style pace: with the default 6 significant digits, `7:00 min/mi to min/km` gives `4:20.976 min/km`.
-- [ ] Pace precision: with 6 significant digits selected, `4:45 min/mi to min/km` gives `2:57.0906 min/km`; the equivalent decimal-style input gives `2.95151 min/km`.
+- [ ] Clock-style pace: with the default 3 decimals, `7:00 min/mi to min/km` gives `4:20.976 min/km`.
+- [ ] Pace precision: with 3 decimals selected, `4:45 min/mi to min/km` gives `2:57.091 min/km`; the equivalent decimal-style input gives `2.952 min/km`.
+- [ ] Decimals: `6367.325634 m to m` shows `6,367` at 0 decimals and `6,367.33` at 2; `23 m² in mi²` shows `8.88e-6` at 2 decimals rather than 0; the − button disables at 0 and + at 15.
 - [ ] Scientific notation: `-2.5e3 µm → mm` gives `-2.5 mm`.
 - [ ] Case-sensitive symbols: `1 MW to W` gives `1,000,000 W`; `1 Mm to km` gives `1,000 km`; `1 b to B` gives `0.125 B`.
 - [ ] Invalid grouping and clocks such as `1,5 m to cm`, `1,2,3 m to cm`, `4:4 min/mi to min/km`, and `7:99 min/mi to min/km` are rejected.
