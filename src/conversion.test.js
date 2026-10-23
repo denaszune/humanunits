@@ -124,6 +124,24 @@ describe('conversion engine', () => {
     close(evaluate('1 nat to bit (information)')?.result, Math.LOG2E);
   });
 
+  it('converts body-based and historical units exactly', () => {
+    for (const [query, expected] of [
+      ['15 hands to ft', 5], ['15 hh to in', 60], ['300 cubits to m', 137.16], ['1 span to in', 9], ['2 palms to in', 6],
+      ['4 digits to in', 3], ['1 finger to in', .875], ['3 barleycorns to in', 1], ['100 steps to m', 76.2],
+      ['1 ell to in', 45], ['1 smoot to in', 67], ['1 league to mi', 3], ['1 link to ft', .66], ['1 pole to ft', 16.5],
+      ['1 rood to acre', .25], ['1 section to acres', 640], ['1 township to mi²', 36],
+      ['1 cord to ft³', 128], ['1 hogshead to gal (US)', 63], ['1 firkin to gal (Imp)', 9], ['1 shot to fl oz (US)', 1.5], ['20 drops to mL', 1],
+      ['1 slug to lb', 32.1740485564], ['20 dwt to oz t', 1], ['3 scruples to gr', 60],
+      ['1 furlong per fortnight to m/s', 201.168 / 1209600], ['10 fur/fortnight to mph', 10 * 201.168 / 1209600 / .44704],
+    ]) close(evaluate(query)?.result, expected);
+  });
+
+  it('resolves perch as a rod or a square rod from the destination unit', () => {
+    assert.equal(parseQuery('1 perch to ft')?.from.category, 'length');
+    assert.equal(parseQuery('1 perch to acre')?.from.category, 'area');
+    close(evaluate('160 perches to acre')?.result, 1);
+  });
+
   it('converts generalized paces and compatible pace/speed values', () => {
     close(evaluate('7:00 min/mi to min/km')?.result, 4.349598345);
     close(evaluate('4:45 minute per mile in minute per kilometer')?.result, 2.9515131631);
@@ -272,7 +290,7 @@ describe('supported pairs catalog', () => {
   it('exposes a searchable unit catalog without generating pairs', () => {
     const catalog = supportedUnits();
     assert.equal(catalog.length, 59);
-    assert.equal(catalog.reduce((total, group) => total + group.units.length, 0), 507);
+    assert.equal(catalog.reduce((total, group) => total + group.units.length, 0), 532);
     const micrometer = catalog.find(group => group.category === 'length').units.find(unit => unit.symbol === 'µm');
     assert.ok(micrometer.aliases.includes('um'));
     const feetAndInches = catalog.find(group => group.category === 'length').units.find(unit => unit.symbol === 'ft + in');
