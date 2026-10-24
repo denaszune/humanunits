@@ -357,14 +357,26 @@ h1 { margin: .55rem 0 .75rem; max-width: 650px; font-family: var(--font-editoria
 .actions button:hover { background: var(--on-ink-hover); }
 .actions span { margin-right: .25rem; font-size: 1.1rem; }
 .actions .button-icon { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; vertical-align: -.12em; }
-.result-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .75rem; }
+.result-heading { display: flex; align-items: center; }
 .result-heading > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.precision-control { min-width: 0; margin: 0; padding: 0; display: flex; align-items: center; gap: .25rem; border: 0; color: inherit; }
-.precision-control > span { margin-right: .35rem; font-size: .68rem; font-weight: 650; letter-spacing: .02em; text-transform: none; white-space: nowrap; }
-.precision-control button { min-width: 27px; min-height: 27px; padding: 0 .3rem; border: 1px solid var(--precision-border); border-radius: .35rem; background: transparent; color: inherit; font-size: .85rem; font-weight: 700; line-height: 1; cursor: pointer; }
-.precision-control button:hover:not(:disabled) { background: var(--on-ink-hover); }
-.precision-control button:disabled { opacity: .4; cursor: not-allowed; }
-.precision-control output { min-width: 2ch; text-align: center; font-size: .78rem; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
+/* Display settings live in their own strip under the number: a Decimals |
+   Fractions switch on the left and the precision stepper on the right. Both
+   are the same bordered pill. The stepper's readout sits left of a joined
+   − + pair, so it can grow (3, 15, 1/8, 1/32768) without moving the buttons. */
+.result-settings { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-2) var(--space-3); color: var(--result-label); }
+.format-switch, .stepper { display: flex; border: 1px solid var(--precision-border); border-radius: .45rem; overflow: hidden; }
+.format-switch button, .stepper button { min-height: 30px; border: 0; background: transparent; color: inherit; line-height: 1; cursor: pointer; }
+.format-switch button + button, .stepper button + button { border-left: 1px solid var(--precision-border); }
+/* The pills clip overflow for their rounded corners, so the focus ring is drawn inside. */
+.format-switch button:focus-visible, .stepper button:focus-visible { outline-offset: -3px; }
+.format-switch button { padding: 0 .6rem; font-size: .72rem; font-weight: 650; letter-spacing: .02em; text-transform: none; white-space: nowrap; }
+.format-switch button:hover:not([aria-pressed="true"]) { background: var(--on-ink-hover); }
+.format-switch button[aria-pressed="true"] { background: var(--converter-result-label); color: var(--converter-result-surface); cursor: default; }
+.precision-control { min-width: 0; margin: 0; padding: 0; display: flex; align-items: center; gap: var(--space-2); border: 0; color: inherit; }
+.stepper button { min-width: 32px; padding: 0 .3rem; font-size: .95rem; font-weight: 700; }
+.stepper button:hover:not(:disabled) { background: var(--on-ink-hover); }
+.stepper button:disabled { opacity: .4; cursor: not-allowed; }
+.precision-control output { min-width: 2ch; text-align: right; font-size: .82rem; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
 .result-card .result strong { font-size: clamp(2.8rem, 11.75cqw, 5.65rem); }
 .result-card.precision-10 .result strong { font-size: clamp(2.55rem, 10.8cqw, 5.4rem); }
 .result-card.precision-15 .result strong { font-size: clamp(1.7rem, 9.7cqw, 5rem); letter-spacing: -.04em; }
@@ -372,7 +384,6 @@ h1 { margin: .55rem 0 .75rem; max-width: 650px; font-family: var(--font-editoria
 .result-card .result strong { flex: none; overflow-wrap: normal; word-break: normal; }
 .result-card .result > span { flex: none; }
 @media (max-width: 520px) {
-  .result-heading { grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; }
   .result-card.valid .result { min-height: 96px; padding-bottom: var(--space-4); }
 }
 h2 { font-size: var(--type-section-title); font-weight: 800; letter-spacing: .06em; line-height: 1.25; text-transform: uppercase; }
@@ -527,7 +538,8 @@ h1 { color: var(--deep-green); text-wrap: balance; }
 .hint { margin: var(--space-2) var(--space-1) var(--space-6); }
 .result-card { border: 1px solid var(--result-border); border-radius: var(--radius-lg); background: var(--ink); box-shadow: var(--shadow-card); }
 .result-heading { padding: var(--space-4) var(--space-6) 0; }
-.result { min-height: 136px; padding: var(--space-3) var(--space-6) var(--space-6); gap: var(--space-3); }
+.result-settings { padding: 0 var(--space-6) var(--space-4); }
+.result { min-height: 136px; padding: var(--space-3) var(--space-6) var(--space-4); gap: var(--space-3); }
 .result strong { font-variant-numeric: lining-nums tabular-nums; text-wrap: balance; }
 .actions button { min-height: 52px; transition: background-color var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease); }
 .actions button:active { transform: translateY(1px); background: var(--on-ink-active); }
@@ -571,7 +583,7 @@ h1 { color: var(--deep-green); text-wrap: balance; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
 @media (max-width: 460px) {
   .input-wrap input { padding-inline: var(--space-4); }
-  .result-heading, .result { padding-inline: var(--space-4); }
+  .result-heading, .result, .result-settings { padding-inline: var(--space-4); }
 }
 @media (max-width: 370px) { .brand > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); } }
 @media (max-width: 520px) {
@@ -704,7 +716,7 @@ h1 { color: var(--deep-green); text-wrap: balance; }
 .converter-composer .result-card {
   min-height: 226px;
   display: grid;
-  grid-template-rows: auto minmax(126px, 1fr) auto;
+  grid-template-rows: auto minmax(126px, 1fr) auto auto;
   overflow: visible;
   border: 0;
   border-top: 1px solid var(--converter-result-border);
@@ -716,8 +728,8 @@ h1 { color: var(--deep-green); text-wrap: balance; }
 .converter-composer .result-card.invalid { border-color: color-mix(in srgb, var(--accent) 28%, var(--border)); background: transparent; }
 .converter-composer .result-heading { min-width: 0; padding: var(--space-4) var(--space-6) 0; background: var(--converter-result-surface); color: var(--converter-result-label); }
 .converter-composer .result-heading span { min-width: 0; overflow-wrap: anywhere; }
-.converter-composer .result-heading span:last-child { text-align: right; }
-.converter-composer .result { min-height: 126px; padding: var(--space-2) var(--space-6) var(--space-6); align-items: center; background: var(--converter-result-surface); color: var(--result-text); }
+.converter-composer .result { min-height: 126px; padding: var(--space-2) var(--space-6) var(--space-3); align-items: center; background: var(--converter-result-surface); color: var(--result-text); }
+.converter-composer .result-settings { padding: 0 var(--space-6) var(--space-4); background: var(--converter-result-surface); color: var(--converter-result-label); }
 .converter-composer .result strong { min-width: 0; max-width: 100%; color: var(--result-text); font-size: clamp(3.05rem, 9.4vw, 5.4rem); line-height: .95; }
 .converter-composer .result-card .result strong { font-size: clamp(2.8rem, 11.75cqw, 5.65rem); }
 .converter-composer .result-card.precision-10 .result strong { font-size: clamp(2.55rem, 10.8cqw, 5.4rem); }
@@ -726,7 +738,8 @@ h1 { color: var(--deep-green); text-wrap: balance; }
 .converter-composer .result > span { color: var(--result-unit-text); }
 .converter-composer .result .empty-result { max-width: 42ch; color: var(--muted); font-size: var(--font-size-body); line-height: var(--line-height-body); }
 .converter-composer.invalid .result-heading,
-.converter-composer.invalid .result { background: var(--error-surface); }
+.converter-composer.invalid .result,
+.converter-composer.invalid .result-settings { background: var(--error-surface); }
 .converter-composer.invalid .result .empty-result { color: var(--danger-text); }
 .converter-composer .actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--converter-result-border); background: var(--converter-surface); }
 .converter-composer .actions button { min-width: 0; min-height: 52px; padding: var(--space-2); border-right: 1px solid var(--border); background: transparent; color: var(--ink); }
@@ -736,8 +749,8 @@ h1 { color: var(--deep-green); text-wrap: balance; }
 .converter-composer .actions button:disabled { color: var(--muted); cursor: not-allowed; opacity: .48; }
 .converter-composer .actions button[aria-pressed="true"] { background: var(--selected-surface); color: var(--selected-text); }
 .action-status { margin: 0; padding: var(--space-2) var(--space-4); border-top: 1px solid var(--border); background: var(--accent-soft); color: var(--danger-text); font-size: var(--type-supporting); }
-.converter-composer .precision-control button { border-color: var(--border-strong); color: var(--ink); }
-.converter-composer .precision-control button:hover:not(:disabled) { background: var(--soft-green); }
+.converter-composer .stepper button { color: var(--ink); }
+.converter-composer .stepper button:hover:not(:disabled), .converter-composer .format-switch button:hover:not([aria-pressed="true"]) { background: var(--soft-green); }
 .converter-composer .precision-control output { color: var(--ink); }
 
 @media (max-width: 520px) {
@@ -746,8 +759,7 @@ h1 { color: var(--deep-green); text-wrap: balance; }
   .converter { padding: var(--space-4) var(--space-4) 0; }
   .converter-heading label { font-size: clamp(1rem, 5vw, 1.3rem); white-space: nowrap; }
   .converter .input-wrap input { min-height: 62px; padding-left: var(--space-3); }
-  .converter-composer .result-heading { padding-inline: var(--space-4); }
-  .converter-composer .result { padding-inline: var(--space-4); }
+  .converter-composer .result-heading, .converter-composer .result, .converter-composer .result-settings { padding-inline: var(--space-4); }
   .converter-composer .result strong { font-size: clamp(2.6rem, 15vw, 4.25rem); }
   .converter-composer .actions button { overflow-wrap: anywhere; }
 }

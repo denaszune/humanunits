@@ -292,14 +292,24 @@ export function supportedPairs() {
 }
 
 const decimalPattern = '(?:(?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d*)?|\\.\\d+)';
-const numericPattern = `[+-]?(?:\\d+(?::\\d{2})?:\\d{2}(?:\\.\\d*)?|${decimalPattern}(?:e[+-]?\\d+)?)`;
+// Fractions: 3/4, a mixed number written 1 3/4 or 1-3/4, and vulgar-fraction
+// glyphs such as ½, which are rewritten to n/d before parsing.
+const fractionPattern = '(?:\\d+(?:[ \\t]+|-))?\\d+/\\d+';
+const amountPattern = `(?:${fractionPattern}|${decimalPattern})`;
+const numericPattern = `[+-]?(?:\\d+(?::\\d{2})?:\\d{2}(?:\\.\\d*)?|${fractionPattern}|${decimalPattern}(?:e[+-]?\\d+)?)`;
+// NFKC turns ½ into 1⁄2 (with a fraction slash); a digit right before the glyph gets a space.
+const expandVulgarFractions = text => text.replace(/(\d?)\s*([¼-¾⅐-⅞])/g, (_, digit, glyph) => `${digit && `${digit} `}${glyph.normalize('NFKC').replace('⁄', '/')}`);
+const amountFromToken = token => {
+  const fraction = token.match(/^([+-]?)(?:(\d+)(?:[ \t]+|-))?(\d+)\/(\d+)$/);
+  if (!fraction) return Number(token.replace(/,/g, ''));
+  return (fraction[1] === '-' ? -1 : 1) * (Number(fraction[2] || 0) + Number(fraction[3]) / Number(fraction[4]));
+};
 
 export function parseQuery(input) {
   if (typeof input !== 'string') return null;
-  const normalized = input.trim().replace(/[−–—]/g, '-');
-  const compound = normalized.match(new RegExp(`^([+-]?)(${decimalPattern})\\s*(?:ft|foot|feet|')\\s*(${decimalPattern})\\s*(?:in(?:ch(?:es)?)?|\")\\s+(?:in(?:to)?|to|as|→)\\s+(.+?)\\s*\\??$`, 'i'));
-  const numberFromToken = token => Number(token.replace(/,/g, ''));
-  const compoundValue = compound ? (compound[1] === '-' ? -1 : 1) * (numberFromToken(compound[2]) + numberFromToken(compound[3]) / 12) : undefined;
+  const normalized = expandVulgarFractions(input.replace(/[−–—]/g, '-')).trim();
+  const compound = normalized.match(new RegExp(`^([+-]?)(${amountPattern})\\s*(?:ft|foot|feet|')\\s*(${amountPattern})\\s*(?:in(?:ch(?:es)?)?|\")\\s+(?:in(?:to)?|to|as|→)\\s+(.+?)\\s*\\??$`, 'i'));
+  const compoundValue = compound ? (compound[1] === '-' ? -1 : 1) * (amountFromToken(compound[2]) + amountFromToken(compound[3]) / 12) : undefined;
   let match = compound ? [compound[0], String(compoundValue), 'ft + in', compound[4]] : null;
   if (!match) {
     const numeric = new RegExp(`^${numericPattern}$`, 'i');
@@ -355,7 +365,7 @@ export function parseQuery(input) {
   const clockUnitSeconds = from.category === 'pace'
     ? /^(?:min)\//.test(from.symbol) ? 60 : /^(?:h)\//.test(from.symbol) ? 3600 : 1
     : 1;
-  const value = compound ? compoundValue : clockInput ? clockValue / clockUnitSeconds : numberFromToken(match[1]);
+  const value = compound ? compoundValue : clockInput ? clockValue / clockUnitSeconds : amountFromToken(match[1]);
   return Number.isFinite(value) ? { value, from, to, clockStyle: clockInput } : null;
 }
 
@@ -389,13 +399,15 @@ export function significantDigitsFor(value, decimals = DEFAULT_DECIMALS) {
   if (!Number.isFinite(value) || magnitude < 1 || magnitude >= 1e12) return Math.min(MAX_SIGNIFICANT_DIGITS, decimals + 1);
   return Math.min(MAX_SIGNIFICANT_DIGITS, Math.floor(Math.log10(magnitude)) + 1 + decimals);
 }
+const splitFeet = value => {
+  const totalInches = Math.abs(value) * 12;
+  const feet = Math.floor(totalInches / 12);
+  const remainder = totalInches - feet * 12;
+  return [value < 0 ? '-' : '', feet, remainder < 1e-9 ? 0 : remainder];
+};
 export function formatDecimals(value, unit, clockStyle = false, decimals = DEFAULT_DECIMALS) {
   if (unit?.format === 'feet-inches' && Number.isFinite(value)) {
-    const sign = value < 0 ? '-' : '';
-    const totalInches = Math.abs(value) * 12;
-    let feet = Math.floor(totalInches / 12);
-    let remainder = totalInches - feet * 12;
-    if (remainder < 1e-9) remainder = 0;
+    let [sign, feet, remainder] = splitFeet(value);
     const inchDigits = significantDigitsFor(remainder, decimals);
     let inches = remainder ? Number(remainder.toPrecision(inchDigits)) : 0;
     if (inches >= 12) {
@@ -416,14 +428,68 @@ export function formatDecimals(value, unit, clockStyle = false, decimals = DEFAU
   const clock = `${minutes}:${seconds}`;
   return value < 0 ? `-${clock}` : clock;
 }
+// Fraction display reuses the Decimals setting as a power of two: N means
+// denominators up to 2^N, so the default of 3 allows eighths while still
+// finding thirds, fifths, and sixths. Only denominators built from 2, 3, and 5
+// are considered, so sevenths, elevenths, and other odd fractions never appear.
+export function fractionDenominatorFor(decimals = DEFAULT_DECIMALS) {
+  return 2 ** decimals;
+}
+const familiarDenominator = denominator => {
+  for (const prime of [2, 3, 5]) while (denominator % prime === 0) denominator /= prime;
+  return denominator === 1;
+};
+// Returns null when a nonzero magnitude would display as 0 at this cap.
+function fractionText(magnitude, maxDenominator) {
+  let whole = Math.floor(magnitude);
+  const part = magnitude - whole;
+  let [numerator, denominator, error] = [Math.round(part), 1, Math.abs(part - Math.round(part))];
+  for (let candidate = 2; candidate <= maxDenominator && error > 1e-12; candidate++) {
+    const count = Math.round(part * candidate);
+    const distance = Math.abs(part - count / candidate);
+    if (familiarDenominator(candidate) && distance < error) [numerator, denominator, error] = [count, candidate, distance];
+  }
+  if (numerator === denominator) {
+    whole += 1;
+    numerator = 0;
+  }
+  if (!whole && !numerator && magnitude) return null;
+  const wholeText = formatNumber(whole, MAX_SIGNIFICANT_DIGITS);
+  if (!numerator) return wholeText;
+  return whole ? `${wholeText} ${numerator}/${denominator}` : `${numerator}/${denominator}`;
+}
+export function formatFraction(value, unit, clockStyle = false, decimals = DEFAULT_DECIMALS) {
+  const decimal = () => formatDecimals(value, unit, clockStyle, decimals);
+  if (!Number.isFinite(value) || clockStyle && unit?.category === 'pace') return decimal();
+  const maxDenominator = fractionDenominatorFor(decimals);
+  if (unit?.format === 'feet-inches') {
+    let [sign, feet, remainder] = splitFeet(value);
+    let inches = fractionText(remainder, maxDenominator);
+    if (inches === null) {
+      if (!feet) return decimal();
+      inches = '0';
+    }
+    if (inches === '12') {
+      feet += 1;
+      inches = '0';
+    }
+    return `${sign}${feet} ft ${inches} in`;
+  }
+  const magnitude = Math.abs(value);
+  if (magnitude !== 0 && (magnitude >= 1e12 || magnitude < 1e-4)) return decimal();
+  const text = fractionText(magnitude, maxDenominator);
+  if (text === null) return decimal();
+  return value < 0 ? `-${text}` : text;
+}
+export function formatResult(value, unit, clockStyle = false, decimals = DEFAULT_DECIMALS, fractions = false) {
+  return fractions ? formatFraction(value, unit, clockStyle, decimals) : formatDecimals(value, unit, clockStyle, decimals);
+}
 export function formatValue(value, unit, clockStyle = false, maximumSignificantDigits = 10) {
   if (unit?.format === 'feet-inches' && Number.isFinite(value)) {
-    const sign = value < 0 ? '-' : '';
-    const totalInches = Math.abs(value) * 12;
-    let feet = Math.floor(totalInches / 12);
+    let [sign, feet, remainder] = splitFeet(value);
     const feetDigits = feet ? Math.floor(Math.log10(feet)) + 1 : 0;
     const inchDigits = Math.max(1, maximumSignificantDigits - feetDigits);
-    let inches = Number((totalInches - feet * 12).toPrecision(inchDigits));
+    let inches = Number(remainder.toPrecision(inchDigits));
     if (inches >= 12) {
       feet += 1;
       inches = 0;

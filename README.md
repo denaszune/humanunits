@@ -18,6 +18,7 @@ Human Units supports 532 units and result formats across 59 everyday, scientific
 * **Broad coverage:** Browse 532 units and result formats across 59 categories.
 * **Specialized conversion logic:** Handles temperature, pace, fuel economy, calendar durations, and other non-linear conversions.
 * **Adjustable precision:** Show 0 to 15 decimals. Small results keep their leading digits instead of rounding to zero, and output is capped at 15 significant digits.
+* **Fractions:** Type `1 3/4 cups` or `½ cup`, and switch results to fractions such as `3 15/16 in` with a denominator cap you control.
 * **Pinned pairs:** Save and arrange frequently used unit pairs for quick reuse.
 * **Recent conversions:** Reopen intentional conversions without saving every intermediate keystroke.
 * **Private by design:** All parsing and conversion happen locally in the browser.

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { convert, evaluate, formatDecimals, formatNumber, formatValue, pairQuery, parseQuery, significantDigitsFor, supportedPairs, supportedUnits } from './conversion.js';
+import { convert, evaluate, formatDecimals, formatFraction, formatNumber, formatResult, formatValue, fractionDenominatorFor, pairQuery, parseQuery, significantDigitsFor, supportedPairs, supportedUnits } from './conversion.js';
 import { movePin, prependPin, quickReusePins, reusePinnedPair } from './pins.js';
 
 function close(actual, expected, precision = 8) {
@@ -87,6 +87,28 @@ describe('natural-language parser', () => {
     close(evaluate('-2.5e3 µm → mm')?.result, -2.5);
     close(evaluate('1 m² to cm2')?.result, 10000);
     close(evaluate('1 m³ as liters')?.result, 1000);
+  });
+
+  it('accepts simple, mixed, hyphenated, and vulgar-glyph fractions', () => {
+    close(parseQuery('3/4 cup in ml')?.value, 0.75);
+    close(parseQuery('1 3/4 cups to ml')?.value, 1.75);
+    close(parseQuery('1-3/4 in to cm')?.value, 1.75);
+    close(parseQuery('-1 1/2 in to cm')?.value, -1.5);
+    close(parseQuery('2½ cups in ml')?.value, 2.5);
+    close(parseQuery('½ cup in ml')?.value, 0.5);
+    close(parseQuery('⅔ cup in ml')?.value, 2 / 3);
+    close(parseQuery('12⅒ cups in ml')?.value, 12.1);
+    close(evaluate('1 m² to cm2')?.result, 10000);
+    close(evaluate('1 µm to nm')?.result, 1000);
+    close(parseQuery('1/2mi to km')?.value, 0.5);
+    close(evaluate('1/2 mi to km')?.result, 0.804672);
+    assert.equal(parseQuery('1/2 mi to km')?.from.symbol, 'mi');
+    assert.equal(parseQuery('5 ft 3 1/2 in to cm')?.from.symbol, 'ft + in');
+    close(parseQuery('5 ft 3 1/2 in to cm')?.value, 5 + 3.5 / 12);
+    close(parseQuery('5\' 3½" to cm')?.value, 5 + 3.5 / 12);
+    assert.equal(parseQuery('1/0 cup in ml'), null);
+    assert.equal(parseQuery('8/km to /mi')?.from.category, 'pace');
+    assert.equal(parseQuery('5 min/mi to min/km')?.from.category, 'pace');
   });
 
   for (const query of ['hello', '10 km', '1 kg to miles', 'NaN m to ft', '']) it(`rejects invalid query ${query}`, () => {
@@ -319,6 +341,47 @@ describe('conversion engine', () => {
     const longPace = evaluate('90:00 min/mi in min/km');
     assert.equal(formatDecimals(longPace.result, longPace.to, longPace.clockStyle, 3), '55:55.404');
     assert.equal(formatDecimals(-pace.result, pace.to, true, 0), '-2:57');
+  });
+
+  it('maps the decimals setting to a power-of-two denominator cap', () => {
+    assert.deepEqual([0, 1, 3, 4, 6, 15].map(fractionDenominatorFor), [1, 2, 8, 16, 64, 32768]);
+  });
+
+  it('formats fractions with familiar denominators and falls back to decimals when a fraction cannot show the value', () => {
+    const plain = value => decimals => formatFraction(value, undefined, false, decimals);
+    assert.deepEqual([0, 3, 6].map(plain(evaluate('10 cm in in').result)), ['4', '3 7/8', '3 15/16']);
+    assert.deepEqual([3, 6].map(plain(evaluate('1 mi to km').result)), ['1 3/5', '1 39/64']);
+    assert.equal(plain(evaluate('1 kg in lb').result)(3), '2 1/5');
+    assert.equal(plain(1 / 3)(3), '1/3');
+    assert.equal(plain(2 / 3)(3), '2/3');
+    assert.equal(plain(1 / 7)(3), '1/8', 'sevenths are never shown');
+    assert.equal(plain(0.9)(0), '1');
+    assert.equal(plain(0.4)(0), '0.4', 'a nonzero result never rounds to zero');
+    assert.equal(plain(0.01)(3), '0.01');
+    assert.equal(plain(0)(3), '0');
+    assert.equal(plain(-2.5)(3), '-2 1/2');
+    assert.equal(plain(2000)(15), '2,000');
+    assert.equal(plain(2.9999999999999996)(3), '3');
+    const area = evaluate('23 m² in mi²');
+    assert.equal(formatFraction(area.result, area.to, false, 2), '8.88e-6');
+    const astronomical = evaluate('1 au to m');
+    assert.equal(formatFraction(astronomical.result, astronomical.to, false, 3), '149,597,870,700');
+    assert.equal(formatFraction(NaN, undefined, false, 3), 'NaN');
+  });
+
+  it('formats compound and clock-style results in fraction mode', () => {
+    const height = evaluate('180 cm in ft + in');
+    assert.deepEqual([0, 3, 6].map(decimals => formatFraction(height.result, height.to, false, decimals)), ['5 ft 11 in', '5 ft 10 7/8 in', '5 ft 10 13/15 in']);
+    assert.equal(formatFraction(evaluate('5.999 ft to ft + in').result, height.to, false, 3), '6 ft 0 in', 'inches carry into the next foot');
+    assert.equal(formatFraction(evaluate('5 ft 0.01 in to ft + in').result, height.to, false, 3), '5 ft 0 in');
+    assert.equal(formatFraction(evaluate('0.01 in in ft + in').result, height.to, false, 3), '0 ft 0.01 in', 'a tiny compound result stays visible');
+    assert.equal(formatFraction(evaluate('-6 in in ft + in').result, height.to, false, 3), '-0 ft 6 in');
+    const pace = evaluate('4:45 min/mi to min/km');
+    assert.equal(formatFraction(pace.result, pace.to, pace.clockStyle, 3), '2:57.091', 'clock-style pace ignores fraction mode');
+    assert.deepEqual([3, 4, 5].map(decimals => formatFraction(pace.result, pace.to, false, decimals)), ['3', '2 15/16', '2 19/20']);
+    assert.equal(formatResult(pace.result, pace.to, false, 5, true), '2 19/20');
+    assert.equal(formatResult(pace.result, pace.to, false, 3, false), '2.952');
+    assert.equal(formatResult(pace.result, pace.to, false, 3), '2.952');
   });
 
   it('uses readable scientific notation for very small conversion results', () => {

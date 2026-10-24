@@ -9,7 +9,7 @@ async function filesIn(directory) {
 }
 const files = (await filesIn(root)).filter(file => /\.(?:js|css)$/.test(file) && !file.endsWith('service-worker.js'));
 const budgets = {
-  JavaScript: 30 * 1024,
+  JavaScript: 31 * 1024,
   CSS: 9 * 1024,
 };
 let jsGzip = 0;

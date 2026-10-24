@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { DEFAULT_DECIMALS, evaluate, formatDecimals, formatValue, MAX_DECIMALS, pairQuery, supportedUnits } from './conversion.js';
+import { DEFAULT_DECIMALS, evaluate, formatResult, formatValue, fractionDenominatorFor, MAX_DECIMALS, pairQuery, supportedUnits } from './conversion.js';
 import { movePin, prependPin, quickReusePins, reusePinnedPair } from './pins.js';
 import { isHistoryEntry, isPinEntry, readStoredCollection, writeStoredValue } from './storage.js';
 
@@ -8,6 +8,7 @@ const PINS_KEY = 'humanunits:pins:v1';
 const DECIMALS_KEY = 'humanunits:decimals:v1';
 const MIN_DECIMALS = 0;
 const validDecimals = value => Number.isInteger(value) && value >= MIN_DECIMALS && value <= MAX_DECIMALS ? value : null;
+const FRACTIONS_KEY = 'humanunits:fractions:v1';
 const THEME_KEY = 'humanunits:theme:v1';
 const THEME_COLORS = { light: '#f6f2e8', dark: '#121212' };
 const themeOptions = [
@@ -19,8 +20,8 @@ const examples = ['10 km in miles', '72 f to c', '5 lb to kg'];
 const appRoot = import.meta.env.BASE_PATH === './' ? new URL('./', document.baseURI).pathname : import.meta.env.BASE_PATH;
 const licensePath = `${appRoot}#license`;
 const symbolPairQuery = (from, to, value) => pairQuery(from, to, value);
-const formattedResult = (value, decimals) => {
-  const formatted = formatDecimals(value.result, value.to, value.clockStyle, decimals);
+const formattedResult = (value, decimals, fractions = false) => {
+  const formatted = formatResult(value.result, value.to, value.clockStyle, decimals, fractions);
   return value.to.formatIncludesUnit ? formatted : `${formatted} ${value.to.symbol}`;
 };
 const scrollToTop = (smooth = true, scroller) => {
@@ -119,19 +120,15 @@ function save(key, value) {
   return writeStoredValue(localStorage, key, value);
 }
 
-function loadDecimals() {
+function loadSetting(key, pick) {
   try {
-    const value = JSON.parse(localStorage.getItem(DECIMALS_KEY));
-    return validDecimals(value) ?? DEFAULT_DECIMALS;
-  } catch { return DEFAULT_DECIMALS; }
+    return pick(JSON.parse(localStorage.getItem(key)));
+  } catch { return pick(); }
 }
 
-function loadThemePreference() {
-  try {
-    const value = JSON.parse(localStorage.getItem(THEME_KEY));
-    return value === 'light' || value === 'dark' ? value : 'system';
-  } catch { return 'system'; }
-}
+const loadDecimals = () => loadSetting(DECIMALS_KEY, value => validDecimals(value) ?? DEFAULT_DECIMALS);
+const loadFractions = () => loadSetting(FRACTIONS_KEY, value => value === true);
+const loadThemePreference = () => loadSetting(THEME_KEY, value => value === 'light' || value === 'dark' ? value : 'system');
 
 function saveThemePreference(value) {
   try {
@@ -145,19 +142,24 @@ function loadSharedConversion() {
   const params = new URLSearchParams(location.search);
   const sharedQuery = (params.get('q') || '').trim();
   const sharedDecimals = params.has('d') ? Number(params.get('d')) : NaN;
+  // Links written by this app always carry `d`, so a link with `d` but no `f`
+  // was shared from decimal mode. A link with neither leaves the saved setting alone.
+  const fractions = params.has('f') || params.has('d') ? params.get('f') === '1' : null;
   return {
     query: sharedQuery.length <= 500 ? sharedQuery : '',
     decimals: validDecimals(sharedDecimals),
+    fractions,
   };
 }
 
 export default function App() {
   const savedDecimals = loadDecimals();
+  const savedFractions = loadFractions();
   const sharedConversion = loadSharedConversion();
   const [query, setQuery] = createSignal(sharedConversion.query);
   const [recentConversions, setRecentConversions] = createSignal(readStoredCollection(localStorage, HISTORY_KEY, isHistoryEntry).map(entry => {
     const value = evaluate(entry.query);
-    return value ? { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle)), result: formattedResult(value, savedDecimals) } : null;
+    return value ? { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle)), result: formattedResult(value, savedDecimals, savedFractions) } : null;
   }).filter(Boolean));
   const [pins, setPins] = createSignal(readStoredCollection(localStorage, PINS_KEY, isPinEntry).map(item => {
     const from = { symbol: item.from, category: item.fromCategory };
@@ -172,6 +174,7 @@ export default function App() {
   const [linkCopyError, setLinkCopyError] = createSignal(false);
   const [storageError, setStorageError] = createSignal(false);
   const [decimals, setDecimals] = createSignal(sharedConversion.decimals ?? savedDecimals);
+  const [fractions, setFractions] = createSignal(sharedConversion.fractions ?? savedFractions);
   const [installPrompt, setInstallPrompt] = createSignal(null);
   const [updateReady, setUpdateReady] = createSignal(false);
   const [dockSuppressed, setDockSuppressed] = createSignal(false);
@@ -294,11 +297,11 @@ export default function App() {
   const conversion = createMemo(() => evaluate(query()));
   const resultText = createMemo(() => {
     const value = conversion();
-    return value ? formattedResult(value, decimals()) : '';
+    return value ? formattedResult(value, decimals(), fractions()) : '';
   });
   const resultNumber = createMemo(() => {
     const value = conversion();
-    return value ? formatDecimals(value.result, value.to, value.clockStyle, decimals()) : '';
+    return value ? formatResult(value.result, value.to, value.clockStyle, decimals(), fractions()) : '';
   });
 
   function fitResult() {
@@ -440,7 +443,7 @@ export default function App() {
 
   function remember(value = conversion()) {
     if (!value) return false;
-    const entry = { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle)), result: formattedResult(value, decimals()) };
+    const entry = { query: symbolPairQuery(value.from, value.to, formatValue(value.value, value.from, value.clockStyle)), result: formattedResult(value, decimals(), fractions()) };
     const next = [entry, ...recentConversions().filter(item => item.query !== entry.query)].slice(0, 8);
     setRecentConversions(next);
     persist(HISTORY_KEY, next);
@@ -448,16 +451,17 @@ export default function App() {
     return true;
   }
 
-  function sharedUrl(digits = decimals()) {
+  function sharedUrl() {
     if (!conversion()) return null;
     const url = new URL(appRoot, location.origin);
     url.searchParams.set('q', query().trim());
-    url.searchParams.set('d', String(digits));
+    url.searchParams.set('d', String(decimals()));
+    if (fractions()) url.searchParams.set('f', '1');
     return url;
   }
 
-  function replaceWithSharedUrl(digits = decimals()) {
-    const url = sharedUrl(digits);
+  function replaceWithSharedUrl() {
+    const url = sharedUrl();
     if (!url) return null;
     window.history.replaceState(window.history.state, '', url);
     return url;
@@ -611,12 +615,19 @@ export default function App() {
     });
   }
 
-  function chooseDecimals(value) {
-    if (validDecimals(value) === null) return;
-    setDecimals(value);
-    persist(DECIMALS_KEY, value);
+  function applyDisplaySetting(key, set, value) {
+    set(value);
+    persist(key, value);
     setLinkCopied(false);
-    if (new URLSearchParams(location.search).has('q')) replaceWithSharedUrl(value);
+    if (new URLSearchParams(location.search).has('q')) replaceWithSharedUrl();
+  }
+
+  function chooseDecimals(value) {
+    if (validDecimals(value) !== null) applyDisplaySetting(DECIMALS_KEY, setDecimals, value);
+  }
+
+  function chooseFractions(value) {
+    if (value !== fractions()) applyDisplaySetting(FRACTIONS_KEY, setFractions, value);
   }
 
   async function copy() {
@@ -714,7 +725,7 @@ export default function App() {
       </div>
     </header>
 
-    <Show when={storageError()}><p class="storage-warning" role="alert">This browser blocked local storage. Your pins, history, decimals, and theme changes will not survive a reload.</p></Show>
+    <Show when={storageError()}><p class="storage-warning" role="alert">This browser blocked local storage. Your pins, history, number format, and theme changes will not survive a reload.</p></Show>
 
     <main ref={mainRef} tabindex="-1" aria-labelledby={page() === 'pairs' ? 'browse-title' : `${page()}-title`} classList={{ 'convert-main': page() === 'converter' }}>
       <Show when={page() === 'converter'} fallback={<Show when={page() === 'pairs'} fallback={<Show when={page() === 'library'} fallback={<Show when={page() === 'about'} fallback={<LicensePage />}><AboutPage onNavigate={handleInternalLink} /></Show>}><LibraryPage pins={pins()} recents={recentConversions()} onReuse={chooseBrowseQuery} onReusePin={reusePinnedQuery} onMovePin={reorderLibraryPin} onUnpin={removeLibraryPin} onRemoveRecent={removeLibraryRecent} onClear={clearLibraryRecent} /></Show>}>
@@ -765,12 +776,21 @@ export default function App() {
           <div class="result-card" classList={{ invalid: query().trim() && !conversion(), valid: Boolean(conversion()), 'precision-10': resultNumber().length > 8 && resultNumber().length < 14, 'precision-15': resultNumber().length >= 14 }}>
             <div class="result-heading">
               <span>{conversion() ? conversion().from.category : 'Result'}</span>
-              <div class="precision-control" role="group" aria-label="Decimals"><span>Decimals</span><button type="button" aria-label="Fewer decimals" disabled={decimals() <= MIN_DECIMALS} onClick={() => chooseDecimals(decimals() - 1)}>−</button><output>{decimals()}</output><button type="button" aria-label="More decimals" disabled={decimals() >= MAX_DECIMALS} onClick={() => chooseDecimals(decimals() + 1)}>+</button></div>
             </div>
             <div ref={resultDisplay} class="result" aria-live="polite" aria-atomic="true">
               <Show when={conversion()} fallback={<span class="empty-result">{query().trim() ? 'Enter a complete conversion, such as 10 km in miles.' : 'Your result appears here.'}</span>}>
                 <strong classList={{ 'compound-value': conversion().to.format === 'feet-inches' }}>{resultNumber()}</strong> <Show when={!conversion().to.formatIncludesUnit}><span>{conversion().to.symbol}</span></Show>
               </Show>
+            </div>
+            <div class="result-settings">
+              <div class="format-switch" role="group" aria-label="Result format">
+                <button type="button" aria-pressed={!fractions()} onClick={() => chooseFractions(false)}>Decimals</button>
+                <button type="button" aria-pressed={fractions()} onClick={() => chooseFractions(true)}>Fractions</button>
+              </div>
+              <div class="precision-control" role="group" aria-label={fractions() ? 'Fraction size' : 'Decimals'}>
+                <output>{fractions() ? `1/${fractionDenominatorFor(decimals())}` : decimals()}</output>
+                <span class="stepper"><button type="button" aria-label={fractions() ? 'Coarser fractions' : 'Fewer decimals'} disabled={decimals() <= MIN_DECIMALS} onClick={() => chooseDecimals(decimals() - 1)}>−</button><button type="button" aria-label={fractions() ? 'Finer fractions' : 'More decimals'} disabled={decimals() >= MAX_DECIMALS} onClick={() => chooseDecimals(decimals() + 1)}>+</button></span>
+              </div>
             </div>
             <Show when={conversion()}>
               <div class="actions">

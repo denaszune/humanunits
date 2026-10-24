@@ -313,6 +313,42 @@ test('loads, updates, and copies shareable conversion URLs', async ({ page }) =>
   await expect.poll(() => new URL(page.url()).searchParams.has('q')).toBe(false);
 });
 
+test('accepts fraction input and toggles fraction output that persists and shares', async ({ page }) => {
+  await page.goto('./?q=10+cm+in+in&d=3');
+  const input = page.getByRole('textbox', { name: 'What would you like to convert?' });
+  const result = page.locator('.result strong');
+  await expect(result).toHaveText('3.937');
+  const formatSwitch = page.getByRole('group', { name: 'Result format' });
+  const decimalsOption = formatSwitch.getByRole('button', { name: 'Decimals' });
+  const fractionsOption = formatSwitch.getByRole('button', { name: 'Fractions' });
+  await expect(decimalsOption).toHaveAttribute('aria-pressed', 'true');
+  await expect(fractionsOption).toHaveAttribute('aria-pressed', 'false');
+  await fractionsOption.click();
+  await expect(fractionsOption).toHaveAttribute('aria-pressed', 'true');
+  await expect(decimalsOption).toHaveAttribute('aria-pressed', 'false');
+  await expect(result).toHaveText('3 7/8');
+  const control = page.getByRole('group', { name: 'Fraction size' });
+  await expect(control.locator('output')).toHaveText('1/8');
+  await control.getByRole('button', { name: 'Finer fractions' }).click();
+  await expect(control.locator('output')).toHaveText('1/16');
+  await expect(result).toHaveText('3 15/16');
+  await expect.poll(() => new URL(page.url()).searchParams.get('f')).toBe('1');
+  await expect.poll(() => new URL(page.url()).searchParams.get('d')).toBe('4');
+
+  await input.fill('1 3/4 cups to ml');
+  await expect(result).toHaveText('414');
+  await input.fill('½ cup in ml');
+  await expect(result).toHaveText('118 3/10');
+
+  await page.goto('./');
+  await expect(fractionsOption).toHaveAttribute('aria-pressed', 'true');
+  await page.goto('./?q=10+cm+in+in&d=3');
+  await expect(result).toHaveText('3.937');
+  await expect(fractionsOption).toHaveAttribute('aria-pressed', 'false');
+  await expect(decimalsOption).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('group', { name: 'Decimals' }).locator('output')).toHaveText('3');
+});
+
 test('swaps compound feet and inches without visible round-trip drift', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('./');
