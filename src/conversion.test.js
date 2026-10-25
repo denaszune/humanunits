@@ -137,7 +137,22 @@ describe('conversion engine', () => {
     ['5 L/100km to mpg (US)', 47.0429166], ['1 dBm to dBW', -29],
     ['1 degree Fahrenheit to kelvin', 255.9277777778], ['1 Fahrenheit difference to kelvin difference', 5 / 9],
     ['12 calendar months to calendar years', 1], ['2 decades to calendar years', 20],
+    ['2 years in months', 24], ['6 months in quarters', 2], ['3 quarters in years', .75],
+    ['1 month in days', 365 / 12], ['12 months in days', 365], ['1 year in days', 365], ['1 year in weeks', 365 / 7],
+    ['3 average months in days', 91.25], ['12 mo in common years', 1], ['1 year in months', 12],
+    ['1 decade in days', 3650], ['1 century in weeks', 36500 / 7], ['1 millennium in hours', 365000 * 24], ['1 decade in years', 10],
   ]) it(`converts ${query} accurately`, () => close(evaluate(query)?.result, expected));
+
+  it('routes bare months and years to whichever category can answer', () => {
+    assert.equal(parseQuery('1 month in days')?.from.category, 'time');
+    assert.equal(parseQuery('2 months in years')?.from.category, 'calendar duration');
+    assert.equal(parseQuery('3 months in quarters')?.from.category, 'calendar duration');
+    assert.equal(parseQuery('1 year in days')?.from.category, 'time');
+    close(evaluate('2 years in months')?.result, 24);
+    assert.equal(parseQuery('1 decade in days')?.from.category, 'time');
+    assert.equal(parseQuery('1 century in decades')?.from.category, 'calendar duration');
+    close(evaluate('120 months in days')?.result, evaluate('1 decade in days')?.result);
+  });
 
   it('covers scientific, electrical, radiation, thermal, and information units', () => {
     close(evaluate('1 tesla to gauss')?.result, 10000);
@@ -394,7 +409,7 @@ describe('supported pairs catalog', () => {
   it('exposes a searchable unit catalog without generating pairs', () => {
     const catalog = supportedUnits();
     assert.equal(catalog.length, 59);
-    assert.equal(catalog.reduce((total, group) => total + group.units.length, 0), 532);
+    assert.equal(catalog.reduce((total, group) => total + group.units.length, 0), 536);
     const micrometer = catalog.find(group => group.category === 'length').units.find(unit => unit.symbol === 'µm');
     assert.ok(micrometer.aliases.includes('um'));
     const feetAndInches = catalog.find(group => group.category === 'length').units.find(unit => unit.symbol === 'ft + in');

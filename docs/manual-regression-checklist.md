@@ -50,8 +50,8 @@ Verify the displayed result as well as whether the query is accepted or rejected
 - [ ] Absolute temperature: `32 f to c` gives `0 °C`.
 - [ ] Temperature difference: `1 Fahrenheit difference to kelvin difference` gives about `0.5555555556 K Δ`.
 - [ ] Fuel economy: `5 L/100km to mpg (US)` gives about `47.0429166 mpg (US)`.
-- [ ] Calendar duration: `12 calendar months to calendar years` gives `1 year`.
-- [ ] Fixed and calendar time remain distinct; `1 month to days` is rejected.
+- [ ] Calendar duration: `12 calendar months to calendar years` gives `1 year`; the plurals `2 years in months` give `24 month`.
+- [ ] Everyday time: `1 month in days` gives `30.417 d` (365/12, as Google answers) and `1 year in days` gives `365 d` and `1 decade in days` gives `3,650 d`; `3 months in quarters` still uses the exact calendar ratio and gives `1 quarter`.
 - [ ] Incompatible dimensions such as `1 kg to miles` are rejected.
 - [ ] Unsupported semantic conversion `1 mg/dL to mmol/L` is rejected.
 - [ ] Incompatible sound-level groups such as `1 dBV to dB SPL` are rejected.

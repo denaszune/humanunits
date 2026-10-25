@@ -6,7 +6,7 @@ Type a conversion such as `10 km in miles`, `72 °F to °C`, or `7:30 min/mi in 
 
 **[Open Human Units →](https://humanunits.com/)**
 
-Human Units supports 532 units and result formats across 59 everyday, scientific, computing, and specialist categories. It works offline, requires no account, and includes no advertising, analytics, tracking, or third-party services.
+Human Units supports 536 units and result formats across 59 everyday, scientific, computing, and specialist categories. It works offline, requires no account, and includes no advertising, analytics, tracking, or third-party services.
 
 <!-- Add a final product screenshot here:
 ![Human Units converter](docs/screenshots/converter.png)
@@ -15,7 +15,7 @@ Human Units supports 532 units and result formats across 59 everyday, scientific
 ## Features
 
 * **Natural-language input:** Enter conversions the way you would ask for them.
-* **Broad coverage:** Browse 532 units and result formats across 59 categories.
+* **Broad coverage:** Browse 536 units and result formats across 59 categories.
 * **Specialized conversion logic:** Handles temperature, pace, fuel economy, calendar durations, and other non-linear conversions.
 * **Adjustable precision:** Show 0 to 15 decimals. Small results keep their leading digits instead of rounding to zero, and output is capped at 15 significant digits.
 * **Fractions:** Type `1 3/4 cups` or `½ cup`, and switch results to fractions such as `3 15/16 in` with a denominator cap you control.

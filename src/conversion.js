@@ -54,7 +54,7 @@ for (const unit of units.filter(unit => unit.category === 'speed')) unit.convers
 // Pace factors are seconds per meter. This is linear because every unit is time per a fixed distance.
 add('pace', [['min/mi','minute per mile',60/1609.344,['/mi']],['min/km','minute per kilometer',.06,['/km']],['sec/400 m','second per 400 meters',1/400,['s/400m','sec/400m','/400m']],['min/100 m','minute per 100 meters',.6,['min/100m']],['min/100 yd','minute per 100 yards',60/91.44,['min/100yd']],['min/500 m','minute per 500 meters',.12,['min/500m']],['s/m','second per meter',1],['sec/100 m','second per 100 meters',.01,['s/100m','sec/100m']],['sec/100 yd','second per 100 yards',1/91.44,['s/100yd','sec/100yd']],['sec/50 m','second per 50 meters',.02,['s/50m','sec/50m']],['sec/50 yd','second per 50 yards',1/45.72,['s/50yd','sec/50yd']]]);
 for (const unit of units.filter(unit => unit.category === 'pace')) unit.conversionGroup = 'pace-speed';
-add('time', [['ns','nanosecond',1e-9],['µs','microsecond',1e-6],['ms','millisecond',.001],['s','second',1],['min','minute',60],['h','hour',3600,['hr']],['d','day',86400],['wk','week',604800],['fortnight','fortnight',1209600],['yr365','common year',31536000],['yr366','leap year',31622400],['a','Julian year',31557600]]);
+add('time', [['ns','nanosecond',1e-9],['µs','microsecond',1e-6],['ms','millisecond',.001],['s','second',1],['min','minute',60],['h','hour',3600,['hr']],['d','day',86400],['wk','week',604800],['fortnight','fortnight',1209600],['mo','month (365/12 days)',2628000,['month','average month','mean month']],['yr365','common year',31536000,['year']],['yr366','leap year',31622400],['a','Julian year',31557600],['decade','decade (3,650 days)',315360000,['decades']],['century','century (36,500 days)',3153600000,['centuries']],['millennium','millennium (365,000 days)',31536000000,['millennia']]]);
 add('angle', [['rad','radian',1],['mrad','milliradian',.001],['µrad','microradian',1e-6],['°','degree',Math.PI/180,['deg']],['′','arcminute',Math.PI/10800],['″','arcsecond',Math.PI/648000],['gon','gradian',Math.PI/200],['rev','revolution',Math.PI*2,['turn']]]);
 add('frequency', [['µHz','microhertz',1e-6],['mHz','millihertz',.001],['Hz','hertz',1],['kHz','kilohertz',1e3],['MHz','megahertz',1e6],['GHz','gigahertz',1e9],['THz','terahertz',1e12],['rpm','revolution per minute',1/60],['rps','revolution per second',1],['cpm','cycle per minute',1/60]]);
 add('acceleration', [['m/s²','meter per second squared',1,['m/s2']],['cm/s²','centimeter per second squared',.01,['cm/s2']],['ft/s²','foot per second squared',.3048,['ft/s2']],['Gal','galileo',.01],['g₀','standard gravity',9.80665,['g0']]]);
@@ -124,9 +124,12 @@ for (const unit of units.filter(unit => ['dBV','dBu','dB SPL'].includes(unit.sym
 const dbm=units.find(u=>u.symbol==='dBm'), dbw=units.find(u=>u.symbol==='dBW');
 Object.assign(dbm,{toBase:v=>v,fromBase:v=>v}); Object.assign(dbw,{toBase:v=>v+30,fromBase:v=>v-30});
 
-// Calendar units have exact ratios to one another, but deliberately remain
-// separate from fixed-duration days and hours, which require a start date.
-add('calendar duration', [['month','calendar month',1/12],['quarter','calendar quarter',1/4],['year','calendar year',1],['decade','decade',10],['century','century',100],['millennium','millennium',1000]]);
+// Calendar units have exact ratios to one another. Everyday questions like
+// "1 month in days" are answered by the time category instead, where a bare
+// month is 365/12 days, a bare year is the 365-day common year, and a decade is
+// 3,650 days, matching Google. The pair resolver picks whichever category can
+// satisfy the query and prefers calendar on ties, and the ratios agree in both.
+add('calendar duration', [['month','calendar month',1/12,['months']],['quarter','calendar quarter',1/4,['quarters']],['year','calendar year',1,['years']],['decade','decade',10],['century','century',100,['centuries']],['millennium','millennium',1000,['millennia']]]);
 
 add('temperature difference', [['K Δ','kelvin difference',1,['delta k']],['°C Δ','Celsius difference',1,['delta c']],['°F Δ','Fahrenheit difference',5/9,['delta f']],['°R Δ','Rankine difference',5/9,['delta r']]]);
 
@@ -143,7 +146,9 @@ for (const unit of units) {
   }
 }
 
-const popularCategoryOrder = ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'time', 'digital storage', 'energy', 'pressure', 'power', 'fuel economy'];
+// Calendar duration sits ahead of time so a query both can answer, such as
+// "2 years in months", uses the exact calendar ratio and its unit names.
+const popularCategoryOrder = ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'calendar duration', 'time', 'digital storage', 'energy', 'pressure', 'power', 'fuel economy'];
 const popularUnits = new Map(Object.entries({
   length: ['km', 'mi', 'm', 'ft', 'cm', 'in', 'ft + in'], temperature: ['°C', '°F', 'K'], mass: ['kg', 'lb', 'g', 'oz'],
   volume: ['L', 'gal (US)', 'mL', 'fl oz (US)', 'cup (US)'], area: ['m²', 'ft²', 'ha', 'acre'],
@@ -174,7 +179,7 @@ const sourceDefaults = new Map(Object.entries({
   'pace\0min/100 yd': '2:00', 'pace\0min/500 m': '2:00', 'pace\0s/m': 2, 'pace\0sec/100 m': '1:30',
   'pace\0sec/100 yd': '1:30', 'pace\0sec/50 m': '0:45', 'pace\0sec/50 yd': '0:45',
   'time\0ns': 1000, 'time\0µs': 1000, 'time\0ms': 500, 'time\0s': 60, 'time\0min': 30, 'time\0h': 8,
-  'time\0d': 7, 'time\0wk': 4, 'time\0fortnight': 2, 'time\0yr365': 10, 'time\0yr366': 10, 'time\0a': 10,
+  'time\0d': 7, 'time\0wk': 4, 'time\0fortnight': 2, 'time\0mo': 3, 'time\0yr365': 10, 'time\0yr366': 10, 'time\0a': 10,
   'angle\0rad': 3.14159, 'angle\0°': 90, 'angle\0′': 60, 'angle\0″': 60, 'angle\0rev': 2,
   'pressure\0kPa': 200, 'pressure\0bar': 2, 'pressure\0atm': 2, 'pressure\0mmHg': 760, 'pressure\0inHg': 30, 'pressure\0psi': 30,
   'energy\0J': 1000, 'energy\0kJ': 500, 'energy\0kWh': 10, 'energy\0kcal': 500,
