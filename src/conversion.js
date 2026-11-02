@@ -131,6 +131,24 @@ Object.assign(dbm,{toBase:v=>v,fromBase:v=>v}); Object.assign(dbw,{toBase:v=>v+3
 // satisfy the query and prefers calendar on ties, and the ratios agree in both.
 add('calendar duration', [['month','calendar month',1/12,['months']],['quarter','calendar quarter',1/4,['quarters']],['year','calendar year',1,['years']],['decade','decade',10],['century','century',100,['centuries']],['millennium','millennium',1000,['millennia']]]);
 
+// Pay rates follow the convention Google and most salary calculators use: a
+// 40-hour week and 52 weeks, so 2,080 hours a year, 8 hours a day, biweekly
+// as every two weeks (26 paychecks), and semimonthly as twice a month (24).
+// Factors are the per-hour share of each period. A bare "60k" with no period
+// is read as a yearly salary, the way people say it.
+// Bare "hour", "year", and "month" also match here, but the time and calendar
+// categories sit earlier in the popularity order and win ties, so "1 year in
+// hours" stays a time question while "25 an hour in a year" is a pay question.
+add('pay rate', [
+  ['hourly','per hour',1,['an hour','per hr','/hr','/h','/hour','hr','hour','ph','p/h','wage']],
+  ['daily','per day',1/8,['a day','/day','/d','day','day rate']],
+  ['weekly','per week',1/40,['a week','/wk','/week','wk','week']],
+  ['biweekly','every two weeks',1/80,['bi-weekly','bi weekly','every 2 weeks','every other week','fortnightly','per fortnight','a fortnight','/fortnight','paycheck','per paycheck','a paycheck','paycheque','per pay period']],
+  ['semimonthly','twice a month',24/2080,['semi-monthly','semi monthly','twice monthly']],
+  ['monthly','per month',12/2080,['a month','/mo','/month','mo','month']],
+  ['yearly','per year',1/2080,['a year','/yr','/year','yr','year','annual','annually','per annum','pa','p/a','salary','a salary','income']],
+]);
+
 add('temperature difference', [['K Δ','kelvin difference',1,['delta k']],['°C Δ','Celsius difference',1,['delta c']],['°F Δ','Fahrenheit difference',5/9,['delta f']],['°R Δ','Rankine difference',5/9,['delta r']]]);
 
 const byAlias = new Map();
@@ -148,19 +166,20 @@ for (const unit of units) {
 
 // Calendar duration sits ahead of time so a query both can answer, such as
 // "2 years in months", uses the exact calendar ratio and its unit names.
-const popularCategoryOrder = ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'calendar duration', 'time', 'digital storage', 'energy', 'pressure', 'power', 'fuel economy'];
+const popularCategoryOrder = ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'calendar duration', 'time', 'digital storage', 'energy', 'pressure', 'power', 'fuel economy', 'pay rate'];
 const popularUnits = new Map(Object.entries({
   length: ['km', 'mi', 'm', 'ft', 'cm', 'in', 'ft + in'], temperature: ['°C', '°F', 'K'], mass: ['kg', 'lb', 'g', 'oz'],
   volume: ['L', 'gal (US)', 'mL', 'fl oz (US)', 'cup (US)'], area: ['m²', 'ft²', 'ha', 'acre'],
   speed: ['km/h', 'mph', 'm/s'], pace: ['min/mi', 'min/km', 'sec/400 m', 'min/100 m', 'min/100 yd', 'min/500 m'], time: ['min', 'h', 'd', 's'], 'digital storage': ['MB', 'MiB', 'GB', 'GiB'],
   energy: ['kJ', 'kcal', 'kWh', 'J'], pressure: ['bar', 'psi', 'kPa'], power: ['kW', 'hp', 'W'],
-  'fuel economy': ['L/100km', 'mpg (US)', 'km/L']
+  'fuel economy': ['L/100km', 'mpg (US)', 'km/L'], 'pay rate': ['hourly', 'yearly', 'monthly', 'biweekly', 'weekly', 'daily', 'semimonthly']
 }));
 const popularPairList = [
   ['km', 'mi'], ['m', 'ft'], ['cm', 'ft + in'], ['°C', '°F'], ['°C', 'K'], ['kg', 'lb'], ['g', 'oz'],
   ['L', 'gal (US)'], ['mL', 'fl oz (US)'], ['cup (US)', 'mL'], ['m²', 'ft²'], ['ha', 'acre'],
   ['km/h', 'mph'], ['m/s', 'mph'], ['h', 'min'], ['d', 'h'], ['MB', 'MiB'], ['GB', 'GiB'],
-  ['kJ', 'kcal'], ['kWh', 'J'], ['bar', 'psi'], ['kPa', 'psi'], ['kW', 'hp'], ['L/100km', 'mpg (US)']
+  ['kJ', 'kcal'], ['kWh', 'J'], ['bar', 'psi'], ['kPa', 'psi'], ['kW', 'hp'], ['L/100km', 'mpg (US)'],
+  ['hourly', 'yearly'], ['yearly', 'monthly']
 ];
 const popularPairKeys = new Set(popularPairList.flatMap(([from, to]) => [`${from}\0${to}`, `${to}\0${from}`]));
 
@@ -192,6 +211,8 @@ const sourceDefaults = new Map(Object.entries({
   'ratio\0%': 20, 'ratio\0bp': 100, 'ratio\0ppm': 100,
   'calendar duration\0month': 12, 'calendar duration\0quarter': 4, 'calendar duration\0year': 10,
   'typography\0pt': 12, 'typography\0px': 16, 'typography\0mm': 210, 'typography\0cm': 21, 'typography\0in': 8.5,
+  'pay rate\0hourly': 25, 'pay rate\0daily': 200, 'pay rate\0weekly': 1000, 'pay rate\0biweekly': 2000,
+  'pay rate\0semimonthly': 2500, 'pay rate\0monthly': 5000, 'pay rate\0yearly': 60000,
   'pixel density\0ppi': 96, 'pixel density\0dpi': 300, 'pixel density\0px/cm': 38, 'pixel density\0dpcm': 118,
 }));
 
@@ -310,9 +331,37 @@ const amountFromToken = token => {
   return (fraction[1] === '-' ? -1 : 1) * (Number(fraction[2] || 0) + Number(fraction[3]) / Number(fraction[4]));
 };
 
+// Salary questions arrive with a currency, "k" amounts, and filler such as
+// "is how much" or "salary" next to a period word. The currency is stripped
+// before parsing and echoed on pay-rate results; everything else is dropped.
+const currencyWordPattern = /\b(?:(dollars?|bucks|usd)|(euros?|eur)|gbp|quid)\b/i;
+const payPeriodPattern = '(?:hour|dai|week|bi-?week|semi-?month|month|year)ly|annual(?:ly)?|(?:an?|per) (?:hour|hr|day|week|wk|month|mo|year|yr)|every (?:two|2|other) weeks?|twice a month';
+const thousandsPattern = new RegExp(`^([+-]?${decimalPattern})k$`, 'i');
+const leadingPayPattern = new RegExp(`^\\s*(?:(?:minimum|min) )?(wage|salary)(?: of)? ([+-]?${decimalPattern}k?)(?=\\s|$)`, 'i');
+const payFillerPattern = new RegExp(`\\b(${payPeriodPattern}) (?:salary|pay|wages?|income|rate|earnings)\\b`, 'gi');
+function moneyQuery(text) {
+  let currency;
+  const clean = text
+    .replace(/[$£€¥₹]/g, symbol => { currency ??= symbol; return ''; })
+    .replace(/,(?!\d)|\?\s*$/g, ' ')
+    .replace(/^\s*(?:how much is|what(?:'s| is|s)|convert|i (?:make|earn|get(?: paid)?)|making|earning)\s+/i, '')
+    .replace(leadingPayPattern, (_, word, amount) => `${amount} ${/wage/i.test(word) ? 'per hour' : 'per year'}`)
+    .replace(payFillerPattern, '$1')
+    .replace(/\s+/g, ' ').trim();
+  const word = clean.match(currencyWordPattern);
+  if (!word) return { clean, currency };
+  return { clean: clean.replace(currencyWordPattern, '').replace(/\s+/g, ' ').trim(), currency: currency ?? (word[1] ? '$' : word[2] ? '€' : '£') };
+}
+const isPayRate = text => unitCandidates(text).some(({ unit }) => unit.category === 'pay rate');
+const bareSalary = text => {
+  const thousands = text.trim().match(thousandsPattern);
+  return thousands ? [String(amountFromToken(thousands[1]) * 1000), 'yearly'] : null;
+};
+
 export function parseQuery(input) {
   if (typeof input !== 'string') return null;
-  const normalized = expandVulgarFractions(input.replace(/[−–—]/g, '-')).trim();
+  const { clean: moneyText, currency } = moneyQuery(input);
+  const normalized = expandVulgarFractions(moneyText.replace(/[−–—]/g, '-')).trim();
   const compound = normalized.match(new RegExp(`^([+-]?)(${amountPattern})\\s*(?:ft|foot|feet|')\\s*(${amountPattern})\\s*(?:in(?:ch(?:es)?)?|\")\\s+(?:in(?:to)?|to|as|→)\\s+(.+?)\\s*\\??$`, 'i'));
   const compoundValue = compound ? (compound[1] === '-' ? -1 : 1) * (amountFromToken(compound[2]) + amountFromToken(compound[3]) / 12) : undefined;
   let match = compound ? [compound[0], String(compoundValue), 'ft + in', compound[4]] : null;
@@ -326,21 +375,33 @@ export function parseQuery(input) {
         if (!/^\s/.test(unitText) && /^\d/.test(unit)) continue;
         const paceLike = /^(?:(?:s|sec|second|min|minute|h|hr|hour)\s*)?\//i.test(unit);
         if (unit && numeric.test(value) && (paceLike || unitCandidates(unit).length)) return [value, unit];
+        const thousands = unit && value.match(thousandsPattern);
+        if (thousands && isPayRate(unit)) return [String(amountFromToken(thousands[1]) * 1000), unit];
       }
       return null;
     };
-    const connector = /\s+(?:in(?:to)?|to|as|→)\s+/ig;
+    const connector = /\s+(?:in(?:to)?|to|as|→|=|equals|is how much(?: in| as)?|how much(?: in| as)?|is what(?: in)?|what(?: in)?|is)\s+/ig;
     for (let searchIndex = 0; searchIndex < normalized.length;) {
       connector.lastIndex = searchIndex;
       const separator = connector.exec(normalized);
       if (!separator) break;
-      const source = splitValueUnit(normalized.slice(0, separator.index));
+      const head = normalized.slice(0, separator.index);
       const destination = normalized.slice(separator.index + separator[0].length).replace(/\?\s*$/, '').trim();
+      const source = (isPayRate(destination) && bareSalary(head)) || splitValueUnit(head);
       if (source && destination) {
         match = [normalized, source[0], source[1], destination];
         break;
       }
       searchIndex = separator.index + 1;
+    }
+    // Pay questions often skip the connector: "25 an hour yearly". Only pay
+    // rates get this treatment, so other categories keep rejecting fragments.
+    for (let index = normalized.length - 1; !match && index > 0; index--) {
+      if (normalized[index] !== ' ') continue;
+      const destination = normalized.slice(index + 1);
+      if (!isPayRate(destination)) continue;
+      const source = bareSalary(normalized.slice(0, index)) || splitValueUnit(normalized.slice(0, index));
+      if (source && isPayRate(source[1])) match = [normalized, source[0], source[1], destination];
     }
   }
   if (!match) return null;
@@ -371,7 +432,8 @@ export function parseQuery(input) {
     ? /^(?:min)\//.test(from.symbol) ? 60 : /^(?:h)\//.test(from.symbol) ? 3600 : 1
     : 1;
   const value = compound ? compoundValue : clockInput ? clockValue / clockUnitSeconds : amountFromToken(match[1]);
-  return Number.isFinite(value) ? { value, from, to, clockStyle: clockInput } : null;
+  if (!Number.isFinite(value)) return null;
+  return from.category === 'pay rate' && currency ? { value, from, to, clockStyle: clockInput, currency } : { value, from, to, clockStyle: clockInput };
 }
 
 export function convert(value, from, to) {

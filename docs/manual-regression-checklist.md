@@ -9,7 +9,7 @@ Record the browser, operating system, viewport, build commit, base path, and whe
 - [ ] Record `git branch`, `git rev-parse HEAD`, and `git status --short`; confirm the intended feature branch and clean worktree.
 - [ ] `pnpm test` passes.
 - [ ] `pnpm build` passes, including service-worker and asset-path verification.
-- [ ] `pnpm size` passes the 31 kB JavaScript, 9 kB CSS, and 40 kB combined gzip budgets.
+- [ ] `pnpm size` passes the 32 kB JavaScript, 9 kB CSS, and 41 kB combined gzip budgets.
 - [ ] `pnpm test:e2e` passes against the completed production build.
 
 ## Converter states and actions
@@ -52,6 +52,7 @@ Verify the displayed result as well as whether the query is accepted or rejected
 - [ ] Fuel economy: `5 L/100km to mpg (US)` gives about `47.0429166 mpg (US)`.
 - [ ] Calendar duration: `12 calendar months to calendar years` gives `1 year`; the plurals `2 years in months` give `24 month`.
 - [ ] Everyday time: `1 month in days` gives `30.417 d` (365/12, as Google answers) and `1 year in days` gives `365 d` and `1 decade in days` gives `3,650 d`; `3 months in quarters` still uses the exact calendar ratio and gives `1 quarter`.
+- [ ] Pay rate: `25 an hour in a year` gives `52,000 yearly`; `$50,000 a year is how much an hour` gives `$24.038 hourly` with the currency echoed; `60k salary per paycheck` gives `2,307.692 biweekly` with no connector word; `1 year in hours` still gives `8,760 h`.
 - [ ] Incompatible dimensions such as `1 kg to miles` are rejected.
 - [ ] Unsupported semantic conversion `1 mg/dL to mmol/L` is rejected.
 - [ ] Incompatible sound-level groups such as `1 dBV to dB SPL` are rejected.

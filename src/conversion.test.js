@@ -143,6 +143,49 @@ describe('conversion engine', () => {
     ['1 decade in days', 3650], ['1 century in weeks', 36500 / 7], ['1 millennium in hours', 365000 * 24], ['1 decade in years', 10],
   ]) it(`converts ${query} accurately`, () => close(evaluate(query)?.result, expected));
 
+  it('answers salary questions with a 2,080-hour year', () => {
+    for (const [query, expected] of [
+      ['25 an hour in a year', 52000], ['$25 an hour is how much a year', 52000], ['25/hr to yearly', 52000],
+      ['$25/hour annual salary', 52000], ['25 per hour per year', 52000], ['20 dollars an hour yearly', 41600],
+      ['$18.50/hr salary', 38480], ['32.75 an hour to yr', 68120], ['25 hourly to annual', 52000],
+      ['50000 a year in hourly', 50000 / 2080], ['$50,000 a year is what hourly', 50000 / 2080], ['50k a year hourly', 50000 / 2080],
+      ['60k salary to hourly', 60000 / 2080], ['100k annual in per hour', 100000 / 2080], ['$65,000 annually hourly rate', 65000 / 2080],
+      ['50000 a year biweekly', 50000 / 26], ['60k salary per paycheck', 60000 / 26], ['$52,000 a year every two weeks', 2000],
+      ['80000 a year monthly', 80000 / 12], ['$4,000 a month yearly', 48000], ['4500 per month in annual', 54000],
+      ['200 a day in a year', 52000], ['$200/day annual', 52000], ['1000 a week yearly', 52000], ['25 an hour per day', 200], ['25 an hour per week', 1000],
+      ['60000 a year semi monthly', 2500], ['60k twice a month', 2500], ['2500 semimonthly yearly', 60000], ['2000 biweekly in yearly', 52000], ['2000 every 2 weeks annual', 52000],
+      ['£12.50/hr yearly', 26000], ['€40,000 a year hourly', 40000 / 2080], ['$25 ph to pa', 52000], ['25 p/h to p/a', 52000], ['45k pa in hourly', 45000 / 2080],
+      ['25 an hour to salary', 52000], ['30 an hour what salary', 62400], ['200 a day as a salary', 52000], ['salary 80k hourly', 80000 / 2080],
+      ['60k income hourly', 60000 / 2080], ['minimum wage 15 to salary', 31200], ['450 day rate yearly', 117000], ['I make 25 an hour, salary?', 52000],
+      ['4000 monthly salary to hourly', 48000 / 2080], ['1500 weekly salary yearly', 78000], ['60k to hourly', 60000 / 2080], ['25 hourly in yearly', 52000],
+    ]) {
+      const conversion = evaluate(query);
+      assert.equal(conversion?.from.category, 'pay rate', query);
+      close(conversion.result, expected, 10);
+    }
+  });
+
+  it('echoes the currency only on pay-rate results', () => {
+    assert.equal(evaluate('$25 an hour in a year')?.currency, '$');
+    assert.equal(evaluate('€40,000 a year hourly')?.currency, '€');
+    assert.equal(evaluate('20 dollars an hour yearly')?.currency, '$');
+    assert.equal(evaluate('$25/hour in $/year')?.currency, '$');
+    assert.equal(evaluate('25 an hour in a year')?.currency, undefined);
+    assert.equal(evaluate('$10 km in mi')?.currency, undefined);
+  });
+
+  it('keeps plain time questions in the time category and rejects fragments', () => {
+    assert.equal(parseQuery('1 year in hours')?.from.category, 'time');
+    assert.equal(parseQuery('1 day in hours')?.from.category, 'time');
+    assert.equal(parseQuery('1 pa to psi')?.from.category, 'pressure');
+    close(evaluate('10k to mi')?.result, 6.2137119224);
+    close(evaluate('what is 10 km in miles')?.result, 6.2137119224);
+    assert.equal(evaluate('25 an hour'), null);
+    assert.equal(evaluate('10 km miles'), null);
+    assert.equal(evaluate('25 an hour 30 hours a week yearly'), null);
+    assert.equal(pairQuery('hourly', 'yearly'), '25 hourly in yearly');
+  });
+
   it('routes bare months and years to whichever category can answer', () => {
     assert.equal(parseQuery('1 month in days')?.from.category, 'time');
     assert.equal(parseQuery('2 months in years')?.from.category, 'calendar duration');
@@ -408,8 +451,8 @@ describe('conversion engine', () => {
 describe('supported pairs catalog', () => {
   it('exposes a searchable unit catalog without generating pairs', () => {
     const catalog = supportedUnits();
-    assert.equal(catalog.length, 59);
-    assert.equal(catalog.reduce((total, group) => total + group.units.length, 0), 536);
+    assert.equal(catalog.length, 60);
+    assert.equal(catalog.reduce((total, group) => total + group.units.length, 0), 543);
     const micrometer = catalog.find(group => group.category === 'length').units.find(unit => unit.symbol === 'µm');
     assert.ok(micrometer.aliases.includes('um'));
     const feetAndInches = catalog.find(group => group.category === 'length').units.find(unit => unit.symbol === 'ft + in');
@@ -435,7 +478,7 @@ describe('supported pairs catalog', () => {
 
   it('lists and round-trips every directed pair within each category', () => {
     const catalog = supportedPairs();
-    assert.equal(catalog.length, 59);
+    assert.equal(catalog.length, 60);
     for (const group of catalog) {
       const expectedPairCount = Object.values(Object.groupBy(group.units, unit => unit.conversionGroup || 'linear'))
         .reduce((total, items) => total + items.filter(unit => !unit.outputOnly).length * (items.length - 1), 0);

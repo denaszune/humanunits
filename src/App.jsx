@@ -21,7 +21,7 @@ const appRoot = import.meta.env.BASE_PATH === './' ? new URL('./', document.base
 const licensePath = `${appRoot}#license`;
 const symbolPairQuery = (from, to, value) => pairQuery(from, to, value);
 const formattedResult = (value, decimals, fractions = false) => {
-  const formatted = formatResult(value.result, value.to, value.clockStyle, decimals, fractions);
+  const formatted = `${value.currency ?? ''}${formatResult(value.result, value.to, value.clockStyle, decimals, fractions)}`;
   return value.to.formatIncludesUnit ? formatted : `${formatted} ${value.to.symbol}`;
 };
 const scrollToTop = (smooth = true, scroller) => {
@@ -214,7 +214,7 @@ export default function App() {
   let linkCopyErrorTimer;
   const titleCase = text => text.replace(/(^|\s)\S/g, letter => letter.toUpperCase());
   const categorySections = [
-    ['Everyday', ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'time', 'calendar duration', 'fuel economy', 'angle', 'typography']],
+    ['Everyday', ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'time', 'calendar duration', 'pay rate', 'fuel economy', 'angle', 'typography']],
     ['Science & engineering', ['frequency', 'acceleration', 'force', 'pressure', 'energy', 'power', 'torque', 'density', 'volumetric flow', 'mass flow', 'dynamic viscosity', 'kinematic viscosity', 'ratio', 'amount of substance', 'catalytic activity', 'molar concentration', 'mass concentration', 'specific energy', 'volumetric energy density', 'thermal conductivity', 'heat transfer coefficient', 'specific heat capacity', 'thermal resistance', 'temperature difference']],
     ['Computing', ['digital storage', 'data rate', 'pixel density', 'symbol rate', 'information content']],
     ['Electrical', ['electric current', 'electric charge', 'voltage', 'resistance', 'conductance', 'capacitance', 'inductance', 'magnetic flux', 'magnetic flux density']],
@@ -301,7 +301,7 @@ export default function App() {
   });
   const resultNumber = createMemo(() => {
     const value = conversion();
-    return value ? formatResult(value.result, value.to, value.clockStyle, decimals(), fractions()) : '';
+    return value ? `${value.currency ?? ''}${formatResult(value.result, value.to, value.clockStyle, decimals(), fractions())}` : '';
   });
 
   function fitResult() {
