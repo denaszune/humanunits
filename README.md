@@ -20,6 +20,7 @@ Human Units supports 543 units and result formats across 60 everyday, scientific
 * **Salary questions:** Ask `25 an hour in a year`, `$50,000 a year is how much an hour`, or `60k salary per paycheck`; pay rates use a 40-hour, 52-week year, as Google does.
 * **Adjustable precision:** Show 0 to 15 decimals. Small results keep their leading digits instead of rounding to zero, and output is capped at 15 significant digits.
 * **Fractions:** Type `1 3/4 cups` or `½ cup`, and switch results to fractions such as `3 15/16 in` with a denominator cap you control.
+* **Regional units:** Bare names such as `gallon`, `pint`, `fl oz`, `mpg`, `ton`, `cup`, `tbsp`, and `tsp` mean what they mean where you are. The region starts from your browser's locale (United States; UK, Ireland & New Zealand; Canada; Australia; International everywhere else), the button at the top right of the result shows it and lets you change it, the result shows how the input was read (`1 pt (Imp) =`), and shared links carry the choice. `us gallon`, `uk pint`, or `metric cup` always names one outright.
 * **Pinned pairs:** Save and arrange frequently used unit pairs for quick reuse.
 * **Recent conversions:** Reopen intentional conversions without saving every intermediate keystroke.
 * **Private by design:** All parsing and conversion happen locally in the browser.
@@ -33,7 +34,7 @@ Human Units supports 543 units and result formats across 60 everyday, scientific
 | `10 km in mi`              | `6.21371192237334 mi`            |
 | `72 °F in °C`              | `22.2222222222222 °C`            |
 | `7:30 min/mi in min/km`    | `4:39.62 min/km`                 |
-| `1 US gal in Imperial gal` | `0.832674184628989 Imperial gal` |
+| `1 US gal in Imperial gal` | `0.832674184628989 gal (Imp)`    |
 | `$25 an hour in a year`    | `$52,000 yearly`                 |
 
 Aliases, scientific notation, Unicode symbols, compound units, and clock-style pace values are supported.

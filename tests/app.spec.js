@@ -349,6 +349,152 @@ test('accepts fraction input and toggles fraction output that persists and share
   await expect(page.getByRole('group', { name: 'Decimals' }).locator('output')).toHaveText('3');
 });
 
+async function chooseUnitsRegion(page, name) {
+  await page.locator('.units-toggle').click();
+  await page.getByRole('dialog', { name: 'Regional units' }).getByRole('radio', { name }).check();
+  await expect(page.getByRole('dialog', { name: 'Regional units' })).toBeHidden();
+}
+
+test('reads regional units the US way in a US browser and shows how the input was read', async ({ page }) => {
+  await page.goto('./?q=1+pint+in+ml');
+  const input = page.getByRole('textbox', { name: 'What would you like to convert?' });
+  const source = page.locator('.result-source');
+  await expect(page.getByRole('button', { name: 'US units' })).toBeVisible();
+  await expect(page.locator('.result strong')).toHaveText('473.176');
+  await expect(source).toHaveText('1 pt (US) =');
+  await input.fill('5 ft 10 in to cm');
+  await expect(source).toHaveText('5 ft 10 in =');
+
+  await page.getByRole('button', { name: 'US units' }).click();
+  const picker = page.getByRole('dialog', { name: 'Regional units' });
+  await expect(picker.getByRole('radio')).toHaveCount(5);
+  await expect(picker.getByRole('radio', { name: /United States/ })).toBeChecked();
+  // Opened with the pointer, the chosen region has focus, so arrow keys work straight away.
+  await expect(picker.getByRole('radio', { name: /United States/ })).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(picker).toBeVisible();
+  await expect(page.locator('.units-toggle')).toHaveText('UK units');
+  await page.keyboard.press('ArrowUp');
+  await expect(page.locator('.units-toggle')).toHaveText('US units');
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await picker.getByRole('radio', { name: /Australia/ }).check();
+  await expect(picker).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Australian units' })).toBeFocused();
+  await input.fill('1 tbsp in ml');
+  await expect(page.locator('.result strong')).toHaveText('20');
+  await expect(source).toHaveText('1 tbsp (AU) =');
+
+  // By keyboard the list stays open while arrow keys move through it, and Enter closes it.
+  await page.getByRole('button', { name: 'Australian units' }).press('Enter');
+  await expect(picker).toBeVisible();
+  await expect(picker.getByRole('radio', { name: /Australia/ })).toBeFocused();
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('ArrowUp');
+  await expect(picker).toBeVisible();
+  await expect(picker.getByRole('radio', { name: /UK, Ireland/ })).toBeChecked();
+  await expect(page.locator('.result strong')).toHaveText('15');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect(picker).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Canadian units' })).toBeFocused();
+  await page.getByRole('button', { name: 'Canadian units' }).press('Enter');
+  await page.keyboard.press('Escape');
+  await expect(picker).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Canadian units' })).toBeFocused();
+  await input.fill('1 ton in kg');
+  await expect(source).toHaveText('1 ton (US) =');
+  await input.fill('1 gallon in L');
+  await expect(source).toHaveText('1 gal (Imp) =');
+});
+
+test.describe('in a browser set to a German locale', () => {
+  test.use({ locale: 'de-DE' });
+
+  test('falls back to international units outside the regions with their own', async ({ page }) => {
+    await page.goto('./?q=1+ton+in+kg');
+    await expect(page.getByRole('button', { name: 'International units' })).toBeVisible();
+    await expect(page.locator('.result strong')).toHaveText('1,000');
+    await expect(page.locator('.result-source')).toHaveText('1 t =');
+    const input = page.getByRole('textbox', { name: 'What would you like to convert?' });
+    await input.fill('1 cup in ml');
+    await expect(page.locator('.result strong')).toHaveText('250');
+    await input.fill('1 gallon in L');
+    await expect(page.locator('.result-source')).toHaveText('1 gal (US) =');
+  });
+});
+
+test.describe('in a browser set to a UK locale', () => {
+  test.use({ locale: 'en-GB' });
+
+  test('follows the locale for regional units, remembers a choice, and shares the region', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: async value => { window.__copiedText = value; } },
+      });
+    });
+    await page.goto('./');
+    const input = page.getByRole('textbox', { name: 'What would you like to convert?' });
+    const units = page.locator('.units-toggle');
+    const result = page.locator('.result strong');
+    const source = page.locator('.result-source');
+    await expect(units).toHaveText('UK units');
+    await input.fill('1 pint in ml');
+    await expect(result).toHaveText('568.261');
+    await expect(source).toHaveText('1 pt (Imp) =');
+    await input.fill('1 us pint in ml');
+    await expect(result).toHaveText('473.176');
+    await input.fill('1 pint in ml');
+
+    await page.getByRole('button', { name: 'Copy link' }).click();
+    await expect(page.getByRole('button', { name: 'Link copied' })).toBeVisible();
+    expect(new URL(await page.evaluate(() => window.__copiedText)).searchParams.get('u')).toBe('uk');
+
+    await chooseUnitsRegion(page, /United States/);
+    await expect(units).toHaveText('US units');
+    await expect(result).toHaveText('473.176');
+    await expect(source).toHaveText('1 pt (US) =');
+    await expect.poll(() => new URL(page.url()).searchParams.has('u')).toBe(false);
+    await page.goto('./');
+    await expect(units).toHaveText('US units');
+
+    // A shared link carries its own region without replacing the saved one.
+    await page.goto('./?q=1+pint+in+ml&d=3&u=uk');
+    await expect(units).toHaveText('UK units');
+    await expect(result).toHaveText('568.261');
+    await page.goto('./');
+    await expect(units).toHaveText('US units');
+
+    // Links written before regional units existed carry `d` and meant US units.
+    await page.evaluate(() => localStorage.removeItem('humanunits:units:v1'));
+    await page.goto('./?q=1+pint+in+ml&d=3');
+    await expect(units).toHaveText('US units');
+    await expect(result).toHaveText('473.176');
+
+    // The link's region ends with its conversion: a new query uses the visitor's own.
+    await input.fill('1 gallon in L');
+    await expect(units).toHaveText('UK units');
+    await expect(result).toHaveText('4.546');
+    await expect.poll(() => new URL(page.url()).search).toBe('?d=3');
+
+    // What is left of the link in the address bar must not override a saved choice.
+    await chooseUnitsRegion(page, /Australia/);
+    await page.reload();
+    await expect(units).toHaveText('Australian units');
+    await page.evaluate(() => localStorage.removeItem('humanunits:units:v1'));
+    await page.reload();
+    await expect(units).toHaveText('UK units');
+    await page.goto('./?q=1+pint+in+ml&d=3&u=intl');
+    await expect(units).toHaveText('International units');
+    await page.getByRole('button', { name: 'Clear conversion input' }).click();
+    await expect(units).toHaveText('UK units');
+    await expect.poll(() => new URL(page.url()).search).toBe('?d=3');
+    await page.goto('./?q=1+pint+in+ml');
+    await expect(units).toHaveText('UK units');
+    await expect(result).toHaveText('568.261');
+  });
+});
+
 test('swaps compound feet and inches without visible round-trip drift', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('./');

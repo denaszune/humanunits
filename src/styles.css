@@ -357,8 +357,21 @@ h1 { margin: .55rem 0 .75rem; max-width: 650px; font-family: var(--font-editoria
 .actions button:hover { background: var(--on-ink-hover); }
 .actions span { margin-right: .25rem; font-size: 1.1rem; }
 .actions .button-icon { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; vertical-align: -.12em; }
-.result-heading { display: flex; align-items: center; }
+/* Category on the left, the regional-units button on the right, and under
+   both the input as it was read ("1 qt (Imp) ="), so the number below completes
+   it. The button is set like the category label, with no box. Its padding is
+   the tap target and is pulled back with margins so the row keeps its height,
+   and it is positioned so the focus ring paints over the result area below.
+   It opens the same popover the theme picker uses, which undoes the label styling. */
+.result-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-1) var(--space-3); }
 .result-heading > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.units-toggle { position: relative; margin: -6px -4px -6px 0; padding: 6px 4px; border: 0; border-radius: .45rem; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
+.units-toggle::after { content: ""; display: inline-block; width: .4em; height: .4em; margin: 0 .2em .25em .65em; border: solid; border-width: 0 1.5px 1.5px 0; rotate: 45deg; }
+.units-toggle:focus-visible { outline-offset: -1px; }
+.units-popover { width: min(300px, calc(100vw - var(--space-8))); font-weight: 400; letter-spacing: 0; text-transform: none; }
+/* On a phone the popover is nearly as wide as the screen, so it is pinned to the edge instead of the button. */
+@media (max-width: 420px) { .units-popover { right: var(--space-4); } }
+.result-source { grid-column: 1 / -1; font-size: var(--type-control); font-weight: 500; letter-spacing: 0; text-transform: none; }
 /* Display settings live in their own strip under the number: a Decimals |
    Fractions switch on the left and the precision stepper on the right. Both
    are the same bordered pill. The stepper's readout sits left of a joined

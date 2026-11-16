@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { DEFAULT_DECIMALS, evaluate, formatResult, formatValue, fractionDenominatorFor, MAX_DECIMALS, pairQuery, supportedUnits } from './conversion.js';
+import { DEFAULT_DECIMALS, evaluate, formatResult, formatValue, fractionDenominatorFor, MAX_DECIMALS, pairQuery, supportedUnits, unitRegionFor } from './conversion.js';
 import { movePin, prependPin, quickReusePins, reusePinnedPair } from './pins.js';
 import { isHistoryEntry, isPinEntry, readStoredCollection, writeStoredValue } from './storage.js';
 
@@ -9,6 +9,17 @@ const DECIMALS_KEY = 'humanunits:decimals:v1';
 const MIN_DECIMALS = 0;
 const validDecimals = value => Number.isInteger(value) && value >= MIN_DECIMALS && value <= MAX_DECIMALS ? value : null;
 const FRACTIONS_KEY = 'humanunits:fractions:v1';
+const UNITS_KEY = 'humanunits:units:v1';
+// What bare regional names such as "gallon", "ton", and "cup" mean. The
+// engine holds the units for each value; these are the words shown for them.
+const unitRegions = [
+  { value: 'us', short: 'US', label: 'United States', description: 'US gallon, short ton, 237 mL cup' },
+  { value: 'uk', short: 'UK', label: 'UK, Ireland & New Zealand', description: 'Imperial gallon, long ton, 250 mL cup' },
+  { value: 'ca', short: 'Canadian', label: 'Canada', description: 'Imperial gallon, short ton, 250 mL cup' },
+  { value: 'au', short: 'Australian', label: 'Australia', description: 'Imperial gallon, long ton, 20 mL tablespoon' },
+  { value: 'intl', short: 'International', label: 'International', description: 'US gallon, tonne (1,000 kg), 250 mL cup' },
+];
+const validRegion = value => unitRegions.some(option => option.value === value) ? value : null;
 const THEME_KEY = 'humanunits:theme:v1';
 const THEME_COLORS = { light: '#f6f2e8', dark: '#121212' };
 const themeOptions = [
@@ -128,6 +139,8 @@ function loadSetting(key, pick) {
 
 const loadDecimals = () => loadSetting(DECIMALS_KEY, value => validDecimals(value) ?? DEFAULT_DECIMALS);
 const loadFractions = () => loadSetting(FRACTIONS_KEY, value => value === true);
+// Until someone picks a region for units, it follows the browser's locale.
+const loadRegion = () => loadSetting(UNITS_KEY, validRegion) ?? unitRegionFor(navigator.language);
 const loadThemePreference = () => loadSetting(THEME_KEY, value => value === 'light' || value === 'dark' ? value : 'system');
 
 function saveThemePreference(value) {
@@ -145,10 +158,16 @@ function loadSharedConversion() {
   // Links written by this app always carry `d`, so a link with `d` but no `f`
   // was shared from decimal mode. A link with neither leaves the saved setting alone.
   const fractions = params.has('f') || params.has('d') ? params.get('f') === '1' : null;
+  const query = sharedQuery.length <= 500 ? sharedQuery : '';
+  // The same goes for `u`: without it the link was shared with US units, which
+  // is also what every link meant before regional units existed. It only counts
+  // alongside a conversion, so a leftover `?d=3` cannot override the visitor's region.
+  const region = query && (params.has('u') || params.has('d')) ? validRegion(params.get('u')) ?? 'us' : null;
   return {
-    query: sharedQuery.length <= 500 ? sharedQuery : '',
+    query,
     decimals: validDecimals(sharedDecimals),
     fractions,
+    region,
   };
 }
 
@@ -175,6 +194,12 @@ export default function App() {
   const [storageError, setStorageError] = createSignal(false);
   const [decimals, setDecimals] = createSignal(sharedConversion.decimals ?? savedDecimals);
   const [fractions, setFractions] = createSignal(sharedConversion.fractions ?? savedFractions);
+  // A shared link's region lasts only while its conversion is on screen. After
+  // that the visitor is back to their own, which is the saved or locale one
+  // until they pick another.
+  let ownRegion = loadRegion();
+  const [region, setRegion] = createSignal(sharedConversion.region ?? ownRegion);
+  const regionLabel = createMemo(() => `${unitRegions.find(option => option.value === region()).short} units`);
   const [installPrompt, setInstallPrompt] = createSignal(null);
   const [updateReady, setUpdateReady] = createSignal(false);
   const [dockSuppressed, setDockSuppressed] = createSignal(false);
@@ -205,6 +230,8 @@ export default function App() {
   let mainRef;
   let themeButton;
   let themePopover;
+  let unitsButton;
+  let unitsPopover;
   let browseSelectionFrame;
   let queryDirty = false;
   let routeReady = false;
@@ -294,7 +321,12 @@ export default function App() {
       cancelAnimationFrame(browseSelectionFrame);
     });
   });
-  const conversion = createMemo(() => evaluate(query()));
+  const conversion = createMemo(() => evaluate(query(), region()));
+  // Shows how the input was read, including which gallon or ton was assumed.
+  const sourceText = createMemo(() => {
+    const value = conversion();
+    return value ? `${value.currency ?? ''}${formatValue(value.value, value.from, value.clockStyle)}${value.from.formatIncludesUnit ? '' : ` ${value.from.symbol}`} =` : '';
+  });
   const resultText = createMemo(() => {
     const value = conversion();
     return value ? formattedResult(value, decimals(), fractions()) : '';
@@ -457,6 +489,7 @@ export default function App() {
     url.searchParams.set('q', query().trim());
     url.searchParams.set('d', String(decimals()));
     if (fractions()) url.searchParams.set('f', '1');
+    if (region() !== 'us') url.searchParams.set('u', region());
     return url;
   }
 
@@ -472,7 +505,9 @@ export default function App() {
     if (!url.searchParams.has('q') && !url.searchParams.has('p')) return;
     url.searchParams.delete('q');
     url.searchParams.delete('p');
+    url.searchParams.delete('u');
     window.history.replaceState(window.history.state, '', url);
+    setRegion(ownRegion);
   }
 
   function submit(event) {
@@ -592,11 +627,11 @@ export default function App() {
     themeButton?.focus();
   }
 
-  function positionThemePopover() {
-    const bounds = themeButton?.getBoundingClientRect();
-    if (!bounds || !themePopover) return;
-    themePopover.style.setProperty('--theme-popover-top', `${bounds.bottom + 8}px`);
-    themePopover.style.setProperty('--theme-popover-right', `${Math.max(8, document.body.clientWidth - bounds.right)}px`);
+  function positionPopover(button, popover) {
+    const bounds = button?.getBoundingClientRect();
+    if (!bounds || !popover) return;
+    popover.style.setProperty('--theme-popover-top', `${bounds.bottom + 8}px`);
+    popover.style.setProperty('--theme-popover-right', `${Math.max(8, document.body.clientWidth - bounds.right)}px`);
   }
 
   function swap() {
@@ -628,6 +663,25 @@ export default function App() {
 
   function chooseFractions(value) {
     if (value !== fractions()) applyDisplaySetting(FRACTIONS_KEY, setFractions, value);
+  }
+
+  // Arrow keys move through the regions and apply each one as they go, so the
+  // list stays open for them. A pointer click or Enter is what closes it. Enter
+  // is cancelled there so it does not also press the button that takes focus.
+  function chooseRegion(value) {
+    ownRegion = value;
+    applyDisplaySetting(UNITS_KEY, setRegion, value);
+  }
+
+  // Opening the list puts focus on the chosen region, so arrow keys work at
+  // once however it was opened.
+  function focusChosenRegion(event) {
+    if (event.newState === 'open') unitsPopover.querySelector(':checked')?.focus();
+  }
+
+  function closeUnitsPicker() {
+    unitsPopover?.hidePopover();
+    unitsButton?.focus();
   }
 
   async function copy() {
@@ -702,7 +756,7 @@ export default function App() {
         <nav class="utility-nav" aria-label="Utility">
           <a href={`${appRoot}#about`} onClick={event => handleInternalLink(event, `${appRoot}#about`)} aria-current={page() === 'about' ? 'page' : undefined}>About</a>
         </nav>
-        <button ref={themeButton} class="theme-toggle" type="button" popovertarget="theme-picker" aria-haspopup="dialog" aria-label={`Theme: ${themeLabel()}`} title={`Theme: ${themeLabel()}`} onClick={positionThemePopover}>
+        <button ref={themeButton} class="theme-toggle" type="button" popovertarget="theme-picker" aria-haspopup="dialog" aria-label={`Theme: ${themeLabel()}`} title={`Theme: ${themeLabel()}`} onClick={() => positionPopover(themeButton, themePopover)}>
           <svg aria-hidden="true" viewBox="0 0 24 24">
             <Show when={themePreference() === 'system'} fallback={<Show when={themePreference() === 'light'} fallback={<path d="M20.2 15.4A8.5 8.5 0 0 1 8.6 3.8 8.5 8.5 0 1 0 20.2 15.4Z"/>}><circle cx="12" cy="12" r="3.5"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></Show>}>
               <rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/>
@@ -776,6 +830,17 @@ export default function App() {
           <div class="result-card" classList={{ invalid: query().trim() && !conversion(), valid: Boolean(conversion()), 'precision-10': resultNumber().length > 8 && resultNumber().length < 14, 'precision-15': resultNumber().length >= 14 }}>
             <div class="result-heading">
               <span>{conversion() ? conversion().from.category : 'Result'}</span>
+              <button ref={unitsButton} class="units-toggle" type="button" popovertarget="units-picker" aria-haspopup="dialog" title="Sets what gallon, pint, ton, cup, and spoon names mean" onClick={() => positionPopover(unitsButton, unitsPopover)}>{regionLabel()}</button>
+              <div ref={unitsPopover} id="units-picker" class="theme-popover units-popover" popover="auto" role="dialog" aria-labelledby="units-picker-title" onToggle={focusChosenRegion}>
+                <fieldset onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); closeUnitsPicker(); } }}>
+                  <legend id="units-picker-title">Regional units</legend>
+                  <For each={unitRegions}>{option => <label onClick={event => { if (event.detail) closeUnitsPicker(); }}>
+                    <input type="radio" name="units" value={option.value} checked={region() === option.value} onChange={() => chooseRegion(option.value)} />
+                    <span><strong>{option.label}</strong><small>{option.description}</small></span>
+                  </label>}</For>
+                </fieldset>
+              </div>
+              <Show when={conversion()}><span class="result-source">{sourceText()}</span></Show>
             </div>
             <div ref={resultDisplay} class="result" aria-live="polite" aria-atomic="true">
               <Show when={conversion()} fallback={<span class="empty-result">{query().trim() ? 'Enter a complete conversion, such as 10 km in miles.' : 'Your result appears here.'}</span>}>

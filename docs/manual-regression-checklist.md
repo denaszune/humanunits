@@ -9,7 +9,7 @@ Record the browser, operating system, viewport, build commit, base path, and whe
 - [ ] Record `git branch`, `git rev-parse HEAD`, and `git status --short`; confirm the intended feature branch and clean worktree.
 - [ ] `pnpm test` passes.
 - [ ] `pnpm build` passes, including service-worker and asset-path verification.
-- [ ] `pnpm size` passes the 32 kB JavaScript, 9 kB CSS, and 41 kB combined gzip budgets.
+- [ ] `pnpm size` passes the 33 kB JavaScript, 9.5 kB CSS, and 42.5 kB combined gzip budgets.
 - [ ] `pnpm test:e2e` passes against the completed production build.
 
 ## Converter states and actions
@@ -53,6 +53,11 @@ Verify the displayed result as well as whether the query is accepted or rejected
 - [ ] Calendar duration: `12 calendar months to calendar years` gives `1 year`; the plurals `2 years in months` give `24 month`.
 - [ ] Everyday time: `1 month in days` gives `30.417 d` (365/12, as Google answers) and `1 year in days` gives `365 d` and `1 decade in days` gives `3,650 d`; `3 months in quarters` still uses the exact calendar ratio and gives `1 quarter`.
 - [ ] Pay rate: `25 an hour in a year` gives `52,000 yearly`; `$50,000 a year is how much an hour` gives `$24.038 hourly` with the currency echoed; `60k salary per paycheck` gives `2,307.692 biweekly` with no connector word; `1 year in hours` still gives `8,760 h`.
+- [ ] Regional units: the button at the top right of the result names the region (`US units`, `UK units`, `Canadian units`, `Australian units`, `International units`) and opens a list of the five. With United States chosen, `1 pint in ml` gives `473.176 mL` and the line above the result reads `1 pt (US) =`; with UK, Ireland & New Zealand it gives `568.261 mL` and reads `1 pt (Imp) =`.
+- [ ] Each region reads bare names its own way, on either side of the query. `1 gallon in L`: `3.785` for United States and International, `4.546` for the other three. `1 ton in kg`: `907.185` for United States and Canada, `1,016.047` for UK and Australia, `1,000` for International. `1 cup in ml`: `236.588` for United States, `250` elsewhere. `1 tbsp in ml`: `14.787` for United States, `20` for Australia, `15` elsewhere.
+- [ ] The button reads as a plain label beside the category and shows a complete focus ring that the result area does not cover. Its list matches the theme picker in both themes, stays on screen at 320 px wide, closes on Escape or an outside click, and returns focus to the button after a choice. However it is opened, by click, tap, Enter, or Space, focus lands on the chosen region, arrow keys move through the regions and apply each one while the list stays open, and Enter closes it. Opening it with a pointer shows no focus ring.
+- [ ] Explicit regional units ignore the region: `1 us gallon in L`, `1 gal (US) in L`, and `1 US liquid gallon in L` give `3.785 L`; `1 uk gallon in L` and `1 imperial gallon in L` give `4.546 L`; `1 metric cup in ml` gives `250 mL`; `1 short ton in kg`, `1 long ton in kg`, and `1 tonne in kg` give their own values. The dry measures, peck, and bushel stay US everywhere.
+- [ ] The region starts from the browser locale when nothing is saved: United States for `en-US`; UK, Ireland & New Zealand for `en-GB`, `en-IE`, and `en-NZ`; Canada for `en-CA` and `fr-CA`; Australia for `en-AU`; International for everything else, such as `de-DE` or `en-IN`.
 - [ ] Incompatible dimensions such as `1 kg to miles` are rejected.
 - [ ] Unsupported semantic conversion `1 mg/dL to mmol/L` is rejected.
 - [ ] Incompatible sound-level groups such as `1 dBV to dB SPL` are rejected.
@@ -85,6 +90,7 @@ Use browser developer tools to inspect and, in a disposable profile, edit storag
 
 - [ ] History uses `humanunits:history:v1` and stores an array of `{ query, result }` objects.
 - [ ] Pins use `humanunits:pins:v1` and store an array of `{ from, to, fromCategory, toCategory, query }` objects.
+- [ ] The regional-units choice uses `humanunits:units:v1` and stores `"us"`, `"uk"`, `"ca"`, `"au"`, or `"intl"`; the key is absent until someone picks a region, and a missing or invalid value falls back to the browser locale.
 - [ ] Existing valid values from the baseline load without data loss.
 - [ ] On load, evaluable history queries are normalized against current symbols and formatting.
 - [ ] On load, pin queries are reconstructed from stored `from` and `to` symbols.
@@ -121,6 +127,8 @@ Use browser developer tools to inspect and, in a disposable profile, edit storag
 - [ ] Browser Back and Forward restore the correct page and active navigation state.
 - [ ] Modified clicks retain normal browser link behavior.
 - [ ] Internal page navigation scrolls to the top.
+- [ ] Copy link adds `u=uk`, `u=ca`, `u=au`, or `u=intl` for those regions and no `u` for United States. Opening `?q=1+pint+in+ml&d=3&u=uk` gives `568.261 mL` in any browser without changing the saved region. The link's region lasts while its conversion is on screen: clearing the input or typing a new query returns the button to the visitor's own region and removes `u` from the address bar.
+- [ ] A link with `d` but no `u`, such as `?q=1+pint+in+ml&d=3`, gives `473.176 mL` in any browser, so links copied before regional units existed keep their answer. A hand-written link with neither uses the visitor's own region, and so does a leftover `?d=3` with no `q`, including after a reload.
 - [ ] The root-relative build works at `/`.
 - [ ] A build made with `BASE_PATH=/humanunits/` loads and navigates correctly beneath `/humanunits/`.
 - [ ] Assets, manifest, icon, license URL, and service-worker scope resolve correctly at both base paths.

@@ -33,7 +33,7 @@ add('length', [['ft + in', 'feet and inches', .3048, ['foot and inches', 'feet i
 Object.assign(units.at(-1), { format: 'feet-inches', formatIncludesUnit: true });
 add('area', [['mm²','square millimeter',1e-6,['mm2']],['cm²','square centimeter',1e-4,['cm2']],['dm²','square decimeter',.01,['dm2']],['m²','square meter',1,['m2','sq m']],['a','are',100],['ha','hectare',1e4],['km²','square kilometer',1e6,['km2']],['in²','square inch',.00064516,['in2']],['ft²','square foot',.09290304,['ft2','sq ft','square feet']],['yd²','square yard',.83612736,['yd2']],['acre','acre',4046.8564224],['mi²','square mile',2589988.110336,['mi2']],['nmi²','square nautical mile',3429904,['nmi2']],['b','barn',1e-28]]);
 add('area', [['rd²','square rod',25.29285264,['rd2','sq rod','square perch','square pole','perch','perches']],['rood','rood',1011.7141056],['section','section',2589988.110336,['survey section']],['township','township',93239571.972096,['survey township']]]);
-add('volume', [['µL','microliter',1e-6],['mL','milliliter',.001],['cL','centiliter',.01],['dL','deciliter',.1],['L','liter',1,['litre']],['m³','cubic meter',1000,['m3']],['cm³','cubic centimeter',.001,['cm3','cc']],['mm³','cubic millimeter',1e-6,['mm3']],['in³','cubic inch',.016387064,['in3']],['ft³','cubic foot',28.316846592,['ft3']],['yd³','cubic yard',764.554857984,['yd3']],['tsp (US)','US teaspoon',.00492892159375,['tsp']],['tbsp (US)','US tablespoon',.01478676478125,['tbsp']],['fl oz (US)','US fluid ounce',.0295735295625,['fl oz']],['cup (US)','US cup',.2365882365,['cup']],['pt (US)','US liquid pint',.473176473,['pint']],['qt (US)','US liquid quart',.946352946,['quart']],['gal (US)','US liquid gallon',3.785411784,['gallon','gal']],['fl oz (Imp)','Imperial fluid ounce',.0284130625],['gill (Imp)','Imperial gill',.1420653125],['pt (Imp)','Imperial pint',.56826125],['qt (Imp)','Imperial quart',1.1365225],['gal (Imp)','Imperial gallon',4.54609],['tsp (metric)','metric teaspoon',.005],['tbsp (metric)','metric tablespoon',.015],['cup (metric)','metric cup',.25],['tbsp (AU)','Australian tablespoon',.02],['dry pt (US)','US dry pint',.5506104713575],['dry qt (US)','US dry quart',1.101220942715],['dry gal (US)','US dry gallon',4.40488377086],['pk','US peck',8.80976754172],['bu','US bushel',35.23907016688],['bbl (oil)','oil barrel',158.987294928]]);
+add('volume', [['µL','microliter',1e-6],['mL','milliliter',.001],['cL','centiliter',.01],['dL','deciliter',.1],['L','liter',1,['litre']],['m³','cubic meter',1000,['m3']],['cm³','cubic centimeter',.001,['cm3','cc']],['mm³','cubic millimeter',1e-6,['mm3']],['in³','cubic inch',.016387064,['in3']],['ft³','cubic foot',28.316846592,['ft3']],['yd³','cubic yard',764.554857984,['yd3']],['tsp (US)','US teaspoon',.00492892159375,['tsp','teaspoon']],['tbsp (US)','US tablespoon',.01478676478125,['tbsp','tablespoon']],['fl oz (US)','US fluid ounce',.0295735295625,['fl oz','fluid ounce']],['cup (US)','US cup',.2365882365,['cup']],['pt (US)','US liquid pint',.473176473,['pint']],['qt (US)','US liquid quart',.946352946,['quart','qt']],['gal (US)','US liquid gallon',3.785411784,['gallon','gal']],['fl oz (Imp)','Imperial fluid ounce',.0284130625],['gill (Imp)','Imperial gill',.1420653125],['pt (Imp)','Imperial pint',.56826125],['qt (Imp)','Imperial quart',1.1365225],['gal (Imp)','Imperial gallon',4.54609],['tsp (metric)','metric teaspoon',.005],['tbsp (metric)','metric tablespoon',.015],['cup (metric)','metric cup',.25],['tbsp (AU)','Australian tablespoon',.02],['dry pt (US)','US dry pint',.5506104713575,['dry pint','dry pt']],['dry qt (US)','US dry quart',1.101220942715,['dry quart','dry qt']],['dry gal (US)','US dry gallon',4.40488377086,['dry gallon','dry gal']],['pk','US peck',8.80976754172,['peck']],['bu','US bushel',35.23907016688,['bushel']],['bbl (oil)','oil barrel',158.987294928]]);
 add('volume', [['gtt','drop',.00005,['drops']],['shot (US)','US shot',.04436029434375,['shot','jigger']],['firkin','firkin',40.91481,['beer firkin']],['hogshead (US)','US hogshead',238.480942392,['hogshead']],['cord','cord',3624.556363776,['cord of wood','firewood cord']]]);
 add('mass', [['µg','microgram',1e-6],['mg','milligram',.001],['cg','centigram',.01],['g','gram',1],['dag','decagram',10],['hg','hectogram',100],['kg','kilogram',1000,['kilo']],['t','tonne',1e6,['metric ton']],['ct','carat',.2],['gr','grain',.06479891],['dr','avoirdupois dram',1.7718451953125],['oz','avoirdupois ounce',28.349523125,['ounce']],['lb','pound',453.59237],['st','stone',6350.29318],['cwt (US)','US hundredweight',45359.237],['cwt (Imp)','Imperial hundredweight',50802.34544],['ton (US)','short ton',907184.74,['ton']],['ton (Imp)','long ton',1016046.9088],['oz t','troy ounce',31.1034768],['lb t','troy pound',373.2417216],['dwt','pennyweight',1.55517384],['scruple','scruple',1.2959782,['apothecary scruple']],['slug','slug',14593.90294]]);
 
@@ -164,6 +164,40 @@ for (const unit of units) {
   }
 }
 
+// Bare names such as "gallon", "pint", "ton", "cup", and "tbsp" mean different
+// units in different places. The US unit owns the bare alias, and each other
+// region lists the units those words mean there instead. Symbols and full
+// names ("gal (US)", "US liquid gallon") always mean what they say.
+//   us    US gallon family, short ton, US cup and spoons
+//   uk    Imperial gallon family, long ton, metric cup and spoons (also Ireland, New Zealand)
+//   ca    Imperial gallon family, short ton, metric cup and spoons
+//   au    as uk, with the 20 mL Australian tablespoon
+//   intl  no local gallon, so the US one; "ton" is the tonne; metric cup and spoons
+// "imperial" is not a region anyone picks. It serves "imperial gallon" and "uk pint".
+const regionalPairs = (symbols, variant) => symbols.map(symbol => [`${symbol} (US)`, `${symbol} (${variant})`]);
+const imperialUnits = regionalPairs(['fl oz', 'pt', 'qt', 'gal', 'mpg', 'ton'], 'Imp');
+const metricKitchen = regionalPairs(['tsp', 'tbsp', 'cup'], 'metric');
+const regionalUnits = Object.fromEntries(Object.entries({
+  uk: [...imperialUnits, ...metricKitchen],
+  ca: [...imperialUnits.slice(0, -1), ...metricKitchen],
+  au: [...imperialUnits, ...metricKitchen, ['tbsp (US)', 'tbsp (AU)']],
+  intl: [...metricKitchen, ['ton (US)', 't']],
+  imperial: imperialUnits,
+}).map(([region, swaps]) => [region, new Map(swaps.map(([from, to]) => {
+  const source = units.find(unit => unit.symbol === from);
+  return [source, units.find(unit => unit.symbol === to && unit.category === source.category)];
+}))]));
+// Australia replaces every regional unit, so its keys are the full list of them.
+const isRegional = unit => regionalUnits.au.has(unit);
+// Where each bare name's customary meaning is used. Any other place, and a
+// locale that cannot be read, gets the international set.
+const localeRegions = { US: 'us', PR: 'us', GU: 'us', VI: 'us', AS: 'us', MP: 'us', UM: 'us', LR: 'us', GB: 'uk', IE: 'uk', IM: 'uk', JE: 'uk', GG: 'uk', NZ: 'uk', CA: 'ca', AU: 'au' };
+export function unitRegionFor(locale) {
+  try {
+    return localeRegions[new Intl.Locale(locale).maximize().region] || 'intl';
+  } catch { return 'intl'; }
+}
+
 // Calendar duration sits ahead of time so a query both can answer, such as
 // "2 years in months", uses the exact calendar ratio and its unit names.
 const popularCategoryOrder = ['length', 'temperature', 'mass', 'volume', 'area', 'speed', 'pace', 'calendar duration', 'time', 'digital storage', 'energy', 'pressure', 'power', 'fuel economy', 'pay rate'];
@@ -219,7 +253,7 @@ const sourceDefaults = new Map(Object.entries({
 const unitSymbol = unit => typeof unit === 'string' ? unit : unit?.symbol;
 const pairIsCompatible = (from, to) => from.category === to.category && from.conversionGroup === to.conversionGroup || from.conversionGroup === 'pace-speed' && to.conversionGroup === 'pace-speed';
 
-function unitCandidates(text) {
+function unitCandidates(text, region) {
   let raw = syntax(text).replace(/^degrees?\s+/i, '');
   let requestedCategory;
   const qualifier = raw.match(/^(.*?)\s+\(([^()]+)\)$/);
@@ -235,15 +269,26 @@ function unitCandidates(text) {
       if (current === undefined || rank < current) candidates.set(unit, rank);
     }
   };
+  const key = words(raw);
+  // A bare regional name becomes the region's unit. With `only`, for a name
+  // that states its own region, anything that region does not define is dropped.
+  const regional = (alias, place, only) => (byAlias.get(alias) || []).flatMap(unit => {
+    if (!isRegional(unit) || names(unit.name).includes(alias)) return only ? [] : [unit];
+    const local = regionalUnits[place]?.get(unit);
+    return local ? [local] : only && place !== 'us' ? [] : [unit];
+  });
+  // "us gallon", "uk pint", or "metric cup" names a region outright, whatever the setting.
+  const named = key.match(/^(us|uk|imp|imperial|metric) (.+)/);
   include(byExactSymbol.get(raw), 0);
-  include(byAlias.get(words(raw)), 1);
-  include(byFoldedSymbol.get(words(raw)), 2);
+  include(regional(key, region), 1);
+  if (named) include(regional(named[2], { us: 'us', metric: 'intl' }[named[1]] || 'imperial', true), 1);
+  include(byFoldedSymbol.get(key), 2);
   return [...candidates].map(([unit, rank]) => ({ unit, rank }));
 }
 
-function resolveTextPair(fromText, toText, fromOverride, toOverride) {
-  const fromMatches = fromOverride ? [{ unit: fromOverride, rank: 0 }] : unitCandidates(fromText);
-  const toMatches = toOverride ? [{ unit: toOverride, rank: 0 }] : unitCandidates(toText);
+function resolveTextPair(fromText, toText, fromOverride, toOverride, region) {
+  const fromMatches = fromOverride ? [{ unit: fromOverride, rank: 0 }] : unitCandidates(fromText, region);
+  const toMatches = toOverride ? [{ unit: toOverride, rank: 0 }] : unitCandidates(toText, region);
   const candidates = fromMatches.flatMap(from => toMatches
     .filter(to => pairIsCompatible(from.unit, to.unit))
     .map(to => ({ from: from.unit, to: to.unit, score: from.rank + to.rank })));
@@ -358,7 +403,8 @@ const bareSalary = text => {
   return thousands ? [String(amountFromToken(thousands[1]) * 1000), 'yearly'] : null;
 };
 
-export function parseQuery(input) {
+// `region` is 'us', 'uk', 'ca', 'au', or 'intl' and decides what bare regional names mean.
+export function parseQuery(input, region = 'us') {
   if (typeof input !== 'string') return null;
   const { clean: moneyText, currency } = moneyQuery(input);
   const normalized = expandVulgarFractions(moneyText.replace(/[−–—]/g, '-')).trim();
@@ -424,7 +470,7 @@ export function parseQuery(input) {
   };
   const fromPace = paceUnit(match[2], clockInput);
   const toPace = paceUnit(match[3]);
-  const pair = resolveTextPair(match[2], match[3], fromPace, toPace);
+  const pair = resolveTextPair(match[2], match[3], fromPace, toPace, region);
   if (!pair || pair.from.outputOnly) return null;
   const { from, to } = pair;
   if (clockInput && from.category !== 'pace') return null;
@@ -444,8 +490,8 @@ export function convert(value, from, to) {
   const compatibleBase = paceToSpeed ? 1 / base : base;
   return to.fromBase ? to.fromBase(compatibleBase) : compatibleBase / to.factor;
 }
-export function evaluate(input) {
-  const parsed = parseQuery(input);
+export function evaluate(input, region) {
+  const parsed = parseQuery(input, region);
   if (!parsed) return null;
   if (parsed.from.category === 'temperature' && (parsed.value < (parsed.from.minimum ?? -Infinity) || parsed.value > (parsed.from.maximum ?? Infinity))) return null;
   if ((parsed.from.category === 'fuel economy' || parsed.from.category === 'pace') && parsed.value <= 0) return null;

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { convert, evaluate, formatDecimals, formatFraction, formatNumber, formatResult, formatValue, fractionDenominatorFor, pairQuery, parseQuery, significantDigitsFor, supportedPairs, supportedUnits } from './conversion.js';
+import { convert, evaluate, formatDecimals, formatFraction, formatNumber, formatResult, formatValue, fractionDenominatorFor, pairQuery, parseQuery, significantDigitsFor, supportedPairs, supportedUnits, unitRegionFor } from './conversion.js';
 import { movePin, prependPin, quickReusePins, reusePinnedPair } from './pins.js';
 
 function close(actual, expected, precision = 8) {
@@ -141,6 +141,10 @@ describe('conversion engine', () => {
     ['1 month in days', 365 / 12], ['12 months in days', 365], ['1 year in days', 365], ['1 year in weeks', 365 / 7],
     ['3 average months in days', 91.25], ['12 mo in common years', 1], ['1 year in months', 12],
     ['1 decade in days', 3650], ['1 century in weeks', 36500 / 7], ['1 millennium in hours', 365000 * 24], ['1 decade in years', 10],
+    ['1 qt in L', .946352946], ['4 qt in gal', 1], ['1 gal in qts', 4], ['2 qt to pints', 4],
+    ['1 dry qt in L', 1.101220942715], ['2 dry quarts in L', 2.20244188543], ['1 dry qt in qt', 1.101220942715 / .946352946],
+    ['1 dry pint in L', .5506104713575], ['2 dry pts in dry qt', 1], ['1 dry gallon in L', 4.40488377086], ['1 dry gal in dry quarts', 4],
+    ['1 peck in L', 8.80976754172], ['1 peck in dry gal', 2], ['1 bushel in L', 35.23907016688], ['2 bushels in pecks', 8],
   ]) it(`converts ${query} accurately`, () => close(evaluate(query)?.result, expected));
 
   it('answers salary questions with a 2,080-hour year', () => {
@@ -184,6 +188,66 @@ describe('conversion engine', () => {
     assert.equal(evaluate('10 km miles'), null);
     assert.equal(evaluate('25 an hour 30 hours a week yearly'), null);
     assert.equal(pairQuery('hourly', 'yearly'), '25 hourly in yearly');
+  });
+
+  it('reads bare regional names the way the chosen region does', () => {
+    const usGallon = 3.785411784, imperialGallon = 4.54609, shortTon = 907.18474, longTon = 1016.0469088;
+    //                          us            uk              ca              au              intl
+    for (const [query, ...expected] of [
+      ['1 gallon in L',         usGallon,     imperialGallon, imperialGallon, imperialGallon, usGallon],
+      ['1 gal in L',            usGallon,     imperialGallon, imperialGallon, imperialGallon, usGallon],
+      ['4 qt in L',             usGallon,     imperialGallon, imperialGallon, imperialGallon, usGallon],
+      ['8 pints in L',          usGallon,     imperialGallon, imperialGallon, imperialGallon, usGallon],
+      ['1 fl oz in mL',         29.5735295625, 28.4130625,    28.4130625,     28.4130625,     29.5735295625],
+      ['1 fluid ounce in mL',   29.5735295625, 28.4130625,    28.4130625,     28.4130625,     29.5735295625],
+      ['30 mpg in L/100km',     235.214583 / 30, 282.480936 / 30, 282.480936 / 30, 282.480936 / 30, 235.214583 / 30],
+      ['1 ton in kg',           shortTon,     longTon,        shortTon,       longTon,        1000],
+      ['2 tons in kg',          shortTon * 2, longTon * 2,    shortTon * 2,   longTon * 2,    2000],
+      ['1 cup in mL',           236.5882365,  250,            250,            250,            250],
+      ['1 tbsp in mL',          14.78676478125, 15,           15,             20,             15],
+      ['2 tablespoons in mL',   29.5735295625, 30,            30,             40,             30],
+      ['1 tsp in mL',           4.92892159375, 5,             5,              5,              5],
+      ['3 teaspoons in mL',     14.78676478125, 15,           15,             15,             15],
+      ['1 L in cups',           1 / .2365882365, 4,           4,              4,              4],
+      ['1000 kg in tons',       1000 / shortTon, 1000 / longTon, 1000 / shortTon, 1000 / longTon, 1],
+    ]) {
+      close(evaluate(query)?.result, expected[0]);
+      ['us', 'uk', 'ca', 'au', 'intl'].forEach((region, index) => close(evaluate(query, region)?.result, expected[index]));
+      close(evaluate(query, 'nowhere')?.result, expected[0]);
+    }
+    assert.equal(parseQuery('1 gal in qt', 'uk')?.to.symbol, 'qt (Imp)');
+    assert.equal(parseQuery('1 ton in kg', 'intl')?.from.symbol, 't');
+    assert.equal(parseQuery('1 tbsp in tsp', 'au')?.from.symbol, 'tbsp (AU)');
+    assert.equal(parseQuery('1 tbsp in tsp', 'au')?.to.symbol, 'tsp (metric)');
+  });
+
+  it('keeps explicit units and units without a regional meaning out of the region', () => {
+    for (const region of ['us', 'uk', 'ca', 'au', 'intl']) {
+      for (const [query, from, to] of [
+        ['1 gal (US) in L', 'gal (US)', 'L'], ['1 US liquid gallon in L', 'gal (US)', 'L'], ['1 us gallon in L', 'gal (US)', 'L'],
+        ['1 US gal in Imperial gal', 'gal (US)', 'gal (Imp)'], ['1 uk pint in us pints', 'pt (Imp)', 'pt (US)'],
+        ['1 imp fl oz in mL', 'fl oz (Imp)', 'mL'], ['1 imperial quart in L', 'qt (Imp)', 'L'], ['1 short ton in kg', 'ton (US)', 'kg'],
+        ['1 long ton in kg', 'ton (Imp)', 'kg'], ['1 us ton in uk tons', 'ton (US)', 'ton (Imp)'], ['1 metric ton in tonnes', 't', 't'],
+        ['30 uk mpg in us mpg', 'mpg (Imp)', 'mpg (US)'], ['30 miles per US gallon in L/100km', 'mpg (US)', 'L/100km'],
+        ['1 us cup in metric cups', 'cup (US)', 'cup (metric)'], ['1 us tbsp in metric tbsp', 'tbsp (US)', 'tbsp (metric)'],
+        ['1 US teaspoon in metric tsp', 'tsp (US)', 'tsp (metric)'], ['1 Australian tablespoon in mL', 'tbsp (AU)', 'mL'],
+        ['1 dry qt in L', 'dry qt (US)', 'L'], ['1 bushel in L', 'bu', 'L'], ['12 pt in px', 'pt', 'px'], ['10 km in miles', 'km', 'mi'],
+      ]) {
+        const parsed = parseQuery(query, region);
+        assert.deepEqual([parsed?.from.symbol, parsed?.to.symbol], [from, to], `${query} in ${region}`);
+      }
+      for (const query of ['1 imperial cup in mL', '1 uk tbsp in mL', '1 metric gallon in L', '1 us m in ft']) assert.equal(parseQuery(query, region), null, `${query} in ${region}`);
+    }
+  });
+
+  it('picks the region for units from a locale and falls back to international', () => {
+    for (const [region, locales] of Object.entries({
+      us: ['en-US', 'en', 'es-US', 'es-PR', 'en-LR'],
+      uk: ['en-GB', 'cy', 'en-IE', 'ga', 'en-NZ', 'mi', 'en-JE'],
+      ca: ['en-CA', 'fr-CA'],
+      au: ['en-AU'],
+      intl: ['de-DE', 'fr', 'ja', 'en-IN', 'es-MX', 'es-419', 'pt-BR', '', 'not a locale', undefined, null],
+    })) for (const locale of locales) assert.equal(unitRegionFor(locale), region, String(locale));
   });
 
   it('routes bare months and years to whichever category can answer', () => {
